@@ -1,0 +1,33 @@
+{
+  "name": "ris-ktx2",
+  "version": "0.1.0",
+  "description": "The RIS KTX2 library.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "ktx2"
+  ],
+  "author": "erkapic.luka.dev@gmail.com",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "libktx_read.wasm",
+    "libktx_read.js"
+  ],
+  "dependencies": {
+    "ris-ktx2-api": "^0.1.0-dev.2.4",
+    "vite": "^8.1.5",
+    "vite-plugin-dts": "^5.0.3"
+  },
+  "devDependencies": {
+    "@typescript/typescript6": "^6.0.2",
+    "vitest": "^1.6.0"
+  }
+}
