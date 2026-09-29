@@ -6,9 +6,11 @@ export default defineConfig({
         lib: {
             entry: 'src/index.ts',
             name: 'KtxRead',
-            fileName: (format) => `index.${format === 'es' ? 'js' : 'cjs'}`,
+            formats: ['es'],
+            fileName: () => 'index.js',
         },
         rollupOptions: {
+            external: [/^node:/],
             output: {
                 globals: {},
             },
