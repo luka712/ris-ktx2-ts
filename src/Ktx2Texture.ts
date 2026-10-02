@@ -77,13 +77,13 @@ export class Ktx2Texture implements IKtx2Texture {
     public readonly filePath?: string;
 
     /** @inheritdoc */
-    public readonly width;
+    public readonly width: number;
 
     /** @inheritdoc */
-    public readonly height;
+    public readonly height: number;
 
     /** @inheritdoc */
-    public readonly dataSize;
+    public readonly dataSize: number;
 
     /** @inheritdoc */
     public get needsTranscoding(): boolean {

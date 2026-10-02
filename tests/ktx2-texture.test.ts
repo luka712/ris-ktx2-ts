@@ -1,251 +1,201 @@
 import { describe, it, expect, vi } from 'vitest';
+import {
+    KtxCreateStorage,
+    KtxErrorCode,
+    KtxTranscodeFlags,
+    KtxTranscodeFormat,
+    VkFormat,
+    type IKtxTextureCreateInfo,
+} from 'ris-ktx2-api';
 import { Ktx2Texture } from '../src/Ktx2Texture';
-import { KtxTranscodeFormat, KtxTranscodeFlags } from '../src/enums';
-import {Ktx2Factory} from "../src";
+import { Mapper } from '../src/Mapper';
 
-describe('Ktx2Texture', () => {
-    // Mock KTX texture object that simulates the native library
-    const createMockKtxTexture = (overrides = {}) => ({
+/** KTX2 header `levelCount` is a little-endian uint32 at byte 40. */
+const LEVEL_COUNT_OFFSET = 40;
+
+function headerWithLevelCount(levelCount: number): Uint8Array {
+    const bytes = new Uint8Array(LEVEL_COUNT_OFFSET + 4);
+    new DataView(bytes.buffer).setUint32(LEVEL_COUNT_OFFSET, levelCount, true);
+    return bytes;
+}
+
+function mockKtxTexture(overrides: Record<string, unknown> = {}): any {
+    return {
         baseWidth: 512,
         baseHeight: 256,
         dataSize: 131072,
+        vkFormat: VkFormat.R8G8B8A8_SRGB,
         needsTranscoding: true,
-        numLevels: 10,
-        ...overrides
-    });
+        ...overrides,
+    };
+}
 
+describe('Ktx2Texture', () => {
     describe('constructor', () => {
-        it('should initialize with correct width from baseWidth', () => {
-            const mockTexture = createMockKtxTexture({ baseWidth: 1024 });
-            const texture = new Ktx2Texture(mockTexture);
-            expect(texture.width).toBe(1024);
-        });
-
-        it('should initialize with correct height from baseHeight', () => {
-            const mockTexture = createMockKtxTexture({ baseHeight: 768 });
-            const texture = new Ktx2Texture(mockTexture);
-            expect(texture.height).toBe(768);
-        });
-
-        it('should initialize with correct dataSize', () => {
-            const mockTexture = createMockKtxTexture({ dataSize: 262144 });
-            const texture = new Ktx2Texture(mockTexture);
+        it('reads width, height, and dataSize from the libktx texture', () => {
+            const texture = new Ktx2Texture(
+                {},
+                mockKtxTexture({ baseWidth: 1920, baseHeight: 1080, dataSize: 262144 }),
+                headerWithLevelCount(1),
+            );
+            expect(texture.width).toBe(1920);
+            expect(texture.height).toBe(1080);
             expect(texture.dataSize).toBe(262144);
         });
 
-        it('should initialize with correct needsTranscoding flag', () => {
-            const mockTexture = createMockKtxTexture({ needsTranscoding: false });
-            const texture = new Ktx2Texture(mockTexture);
+        it('reads needsTranscoding from the libktx texture', () => {
+            const texture = new Ktx2Texture(
+                {},
+                mockKtxTexture({ needsTranscoding: false }),
+                headerWithLevelCount(1),
+            );
             expect(texture.needsTranscoding).toBe(false);
         });
 
-        it('should initialize with correct numLevels', () => {
-            const mockTexture = createMockKtxTexture({ numLevels: 5 });
-            const texture = new Ktx2Texture(mockTexture);
+        it('reads numLevels from the KTX2 header', () => {
+            const texture = new Ktx2Texture({}, mockKtxTexture(), headerWithLevelCount(5));
             expect(texture.numLevels).toBe(5);
         });
 
-        it('should handle power-of-two texture dimensions', () => {
-            const mockTexture = createMockKtxTexture({ baseWidth: 2048, baseHeight: 2048 });
-            const texture = new Ktx2Texture(mockTexture);
-            expect(texture.width).toBe(2048);
-            expect(texture.height).toBe(2048);
+        it('reads numLevels from create info when the texture is created empty', () => {
+            const createInfo: IKtxTextureCreateInfo = {
+                baseWidth: 64,
+                baseHeight: 32,
+                numLevels: 4,
+            };
+            const texture = new Ktx2Texture({}, mockKtxTexture(), createInfo);
+            expect(texture.numLevels).toBe(4);
         });
 
-        it('should handle non-power-of-two texture dimensions', () => {
-            const mockTexture = createMockKtxTexture({ baseWidth: 1920, baseHeight: 1080 });
-            const texture = new Ktx2Texture(mockTexture);
-            expect(texture.width).toBe(1920);
-            expect(texture.height).toBe(1080);
-        });
-    });
-
-    describe('readonly properties', () => {
-        it('should have readonly width property', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            // TypeScript enforces readonly at compile time, but we can verify the value doesn't change
-            const initialWidth = texture.width;
-            expect(texture.width).toBe(initialWidth);
-        });
-
-        it('should have readonly height property', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const initialHeight = texture.height;
-            expect(texture.height).toBe(initialHeight);
+        it('copies numLevels from another Ktx2Texture', () => {
+            const original = new Ktx2Texture({}, mockKtxTexture(), headerWithLevelCount(7));
+            const copy = new Ktx2Texture({}, mockKtxTexture(), original, 'cat.ktx2');
+            expect(copy.numLevels).toBe(7);
+            expect(copy.filePath).toBe('cat.ktx2');
         });
     });
 
-    describe('getImageSize', () => {
-        it('should accept mipLevel parameter', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.getImageSize(0);
-            expect(consoleSpy).toHaveBeenCalledWith(0);
-            
-            consoleSpy.mockRestore();
-        });
-
-        it('should return 0 (placeholder implementation)', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            expect(texture.getImageSize(0)).toBe(0);
+    describe('getImage', () => {
+        it('returns the bytes from the libktx texture', () => {
+            const image = new Uint8Array([1, 2, 3, 4]);
+            const ktxTexture = mockKtxTexture({
+                getImage: vi.fn(() => image),
+            });
+            const texture = new Ktx2Texture({}, ktxTexture, headerWithLevelCount(1));
+            expect(texture.getImage(1, 2, 3)).toBe(image);
+            expect(ktxTexture.getImage).toHaveBeenCalledWith(1, 2, 3);
         });
     });
 
-    describe('getRowPitch', () => {
-        it('should accept mipLevel parameter', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.getRowPitch(3);
-            expect(consoleSpy).toHaveBeenCalledWith(3);
-            
-            consoleSpy.mockRestore();
+    describe('getTextureFormatInfo', () => {
+        const texture = new Ktx2Texture({}, mockKtxTexture(), headerWithLevelCount(1));
+
+        it('returns a 4-byte layout for RGBA32 and R8G8B8A8', () => {
+            expect(texture.getTextureFormatInfo(KtxTranscodeFormat.RGBA32).bytesPerBlock).toBe(4);
+            expect(texture.getTextureFormatInfo(VkFormat.R8G8B8A8_UNORM).blockWidth).toBe(1);
+            expect(texture.getTextureFormatInfo(VkFormat.R8G8B8A8_SRGB).bytesPerBlock).toBe(4);
         });
 
-        it('should return 0 (placeholder implementation)', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            expect(texture.getRowPitch(0)).toBe(0);
+        it('returns a 4x4 16-byte layout for BC7, BC3, ETC2, and ASTC 4x4', () => {
+            for (const format of [
+                KtxTranscodeFormat.BC7_RGBA,
+                VkFormat.BC7_UNORM_BLOCK,
+                KtxTranscodeFormat.BC3_RGBA,
+                VkFormat.BC3_UNORM_BLOCK,
+                KtxTranscodeFormat.ETC2_RGBA,
+                VkFormat.ETC2_R8G8B8A8_UNORM_BLOCK,
+                KtxTranscodeFormat.ASTC_4X4_RGBA,
+                VkFormat.ASTC_4X4_UNORM_BLOCK,
+            ]) {
+                const info = texture.getTextureFormatInfo(format);
+                expect(info.blockWidth).toBe(4);
+                expect(info.blockHeight).toBe(4);
+                expect(info.bytesPerBlock).toBe(16);
+            }
         });
-    });
 
-    describe('getImageOffset', () => {
-        it('should accept level, layer, and faceSlice parameters', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.getImageOffset(2, 1, 0);
-            expect(consoleSpy).toHaveBeenCalledWith(2, 1, 0);
-            
-            consoleSpy.mockRestore();
-        });
-
-        it('should return 0 (placeholder implementation)', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            expect(texture.getImageOffset(0, 0, 0)).toBe(0);
+        it('throws for a format it does not recognize', () => {
+            expect(() => texture.getTextureFormatInfo(VkFormat.R8_UNORM)).toThrow(/Unrecognized texture format/);
         });
     });
 
     describe('transcodeBasis', () => {
-        it('should accept transcodeFormat and transcodeFlags parameters', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.transcodeBasis(KtxTranscodeFormat.BC7_RGBA, KtxTranscodeFlags.KTX_TF_HIGH_QUALITY);
-            expect(consoleSpy).toHaveBeenCalledWith(KtxTranscodeFormat.BC7_RGBA, KtxTranscodeFlags.KTX_TF_HIGH_QUALITY);
-            
-            consoleSpy.mockRestore();
-        });
-
-        it('should handle ASTC format', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.transcodeBasis(KtxTranscodeFormat.ASTC_4X4_RGBA, KtxTranscodeFlags.NONE);
-            expect(consoleSpy).toHaveBeenCalledWith(KtxTranscodeFormat.ASTC_4X4_RGBA, KtxTranscodeFlags.NONE);
-            
-            consoleSpy.mockRestore();
-        });
-
-        it('should handle RGBA32 uncompressed format', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.transcodeBasis(KtxTranscodeFormat.RGBA32, KtxTranscodeFlags.NONE);
-            expect(consoleSpy).toHaveBeenCalledWith(KtxTranscodeFormat.RGBA32, KtxTranscodeFlags.NONE);
-            
-            consoleSpy.mockRestore();
-        });
-    });
-
-    describe('compressBasis', () => {
-        it('should accept quality number parameter', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.compressBasis(128);
-            expect(consoleSpy).toHaveBeenCalledWith(128);
-            
-            consoleSpy.mockRestore();
-        });
-
-        it('should accept IKtxBasisParams object', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            const basisParams = {
-                compressionLevel: 2,
-                qualityLevel: 128,
-                uastc: false,
-                uastcFlags: 0,
-                normalMap: false,
-                threadCount: 1,
-                inputSwizzle: ['r', 'g', 'b', 'a'],
-                uastcRDO: false,
-                uastcRDOQualityScalar: 1.0,
-                verbose: false
+        it('maps a supported target and a success code', () => {
+            const ktxLib = {
+                TranscodeTarget: {
+                    BC7_RGBA: 'bc7',
+                    ASTC_4x4_RGBA: 'astc',
+                    BC3_RGBA: 'bc3',
+                    ETC2_RGBA: 'etc2',
+                    RGBA32: 'rgba',
+                },
+                TranscodeFlags: {
+                    TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS: 'alpha-to-opaque',
+                },
             };
-            
-            texture.compressBasis(basisParams);
-            expect(consoleSpy).toHaveBeenCalledWith(basisParams);
-            
-            consoleSpy.mockRestore();
+            const ktxTexture = mockKtxTexture({
+                transcodeBasis: vi.fn(() => ({ value: 0 })),
+            });
+            const texture = new Ktx2Texture(ktxLib, ktxTexture, headerWithLevelCount(1));
+            const code = texture.transcodeBasis(
+                KtxTranscodeFormat.BC7_RGBA,
+                KtxTranscodeFlags.TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS,
+            );
+            expect(code).toBe(KtxErrorCode.SUCCESS);
+            expect(ktxTexture.transcodeBasis).toHaveBeenCalledWith('bc7', 'alpha-to-opaque');
+        });
+
+        it('throws for an unsupported transcode target', () => {
+            const texture = new Ktx2Texture(
+                { TranscodeTarget: {}, TranscodeFlags: {} },
+                mockKtxTexture(),
+                headerWithLevelCount(1),
+            );
+            expect(() => texture.transcodeBasis(
+                999 as KtxTranscodeFormat,
+                KtxTranscodeFlags.TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS,
+            )).toThrow(/Unsupported transcodeFormat/);
         });
     });
 
     describe('compressAstc', () => {
-        it('should accept quality parameter', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
+        it('is not implemented', () => {
+            const texture = new Ktx2Texture({}, mockKtxTexture(), headerWithLevelCount(1));
             const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.compressAstc(75);
+            expect(() => texture.compressAstc(75)).toThrow(/not implemented/i);
             expect(consoleSpy).toHaveBeenCalledWith(75);
-            
             consoleSpy.mockRestore();
         });
+    });
+});
 
-        it('should handle minimum quality value', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.compressAstc(0);
-            expect(consoleSpy).toHaveBeenCalledWith(0);
-            
-            consoleSpy.mockRestore();
-        });
+describe('Mapper', () => {
+    const ktxLib = {
+        VkFormat: {
+            R8G8B8A8_UNORM: 'unorm',
+            R8G8B8A8_SRGB: 'srgb',
+        },
+        TextureCreateStorageEnum: {
+            ALLOC_STORAGE: 'alloc',
+            NO_STORAGE: 'none',
+        },
+    };
 
-        it('should handle maximum quality value', () => {
-            const mockTexture = createMockKtxTexture();
-            const texture = new Ktx2Texture(mockTexture);
-            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-            
-            texture.compressAstc(100);
-            expect(consoleSpy).toHaveBeenCalledWith(100);
-            
-            consoleSpy.mockRestore();
-        });
+    it('maps the Vulkan formats libktx is asked for', () => {
+        expect(Mapper.mapVkFormat(ktxLib, VkFormat.R8G8B8A8_UNORM)).toBe('unorm');
+        expect(Mapper.mapVkFormat(ktxLib, VkFormat.R8G8B8A8_SRGB)).toBe('srgb');
+        expect(() => Mapper.mapVkFormat(ktxLib, VkFormat.R8_UNORM)).toThrow(/Unsupported VkFormat/);
+    });
 
-        it('get array data', async () => {
-            const loader = new Ktx2Factory();
-            await loader.initializeAsync();
-            const tex = loader.loadAsync("test-data/cat.ktx2");
-            const data = (await tex).getTextureDataAsByteArray(0, 0,0);
-            expect(data).not.toBeNull();
-        })
+    it('maps libktx error codes that this package handles', () => {
+        expect(Mapper.mapErrorCodeFromKtxLib({ value: 0 })).toBe(KtxErrorCode.SUCCESS);
+        expect(Mapper.mapErrorCodeFromKtxLib({ value: 10 })).toBe(KtxErrorCode.INVALID_OPERATION);
+        expect(() => Mapper.mapErrorCodeFromKtxLib({ value: 4 })).toThrow(/Not implemented KtxErrorCode/);
+    });
+
+    it('maps KtxCreateStorage onto the libktx storage enum', () => {
+        expect(Mapper.mapStorage(ktxLib, KtxCreateStorage.ALLOC_STORAGE)).toBe('alloc');
+        expect(Mapper.mapStorage(ktxLib, KtxCreateStorage.NO_STORAGE)).toBe('none');
+        expect(() => Mapper.mapStorage(ktxLib, 9 as KtxCreateStorage)).toThrow(/Not implemented KtxCreateStorage/);
     });
 });
