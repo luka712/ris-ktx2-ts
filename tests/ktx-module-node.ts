@@ -8,9 +8,13 @@ import {runInThisContext} from "node:vm";
 type KtxModuleFactory = (options?: any) => Promise<any>;
 
 /**
- * Instantiates libktx under Node. The Emscripten glue already supports Node
- * when `require`, `__dirname`, and `__filename` are in scope, and it reads
- * `libktx.wasm` from the same directory as `libktx.js`.
+ * Test-only libktx bootstrap. Vitest installs these functions on the factory
+ * so Node can read `libktx.js` and a local `.ktx2` file. This module is not
+ * part of the published browser build.
+ *
+ * The Emscripten glue already supports Node when `require`, `__dirname`, and
+ * `__filename` are in scope, and it reads `libktx.wasm` from the same directory
+ * as `libktx.js`.
  */
 export async function createKtxModuleNode(options: any = {}) {
     const gluePath = resolveLibktxGlue();
@@ -54,7 +58,7 @@ function resolveLibktxGlue(): string {
     const metaUrl = import.meta.url;
     if (typeof metaUrl === "string" && metaUrl.length > 0) {
         try {
-            // Keep the filename out of a string literal so the bundler does not
+            // Keep the filename out of a string literal so a bundler does not
             // inline libktx.js. The file ships next to the package root.
             const glueName = "../" + "libktx.js";
             candidates.push(fileURLToPath(new URL(glueName, metaUrl)));

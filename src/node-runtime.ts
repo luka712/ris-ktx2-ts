@@ -17,3 +17,22 @@ export function isNodeRuntime(): boolean {
 export function isRemoteUrl(source: string): boolean {
     return /^(https?:|blob:|data:)/i.test(source);
 }
+
+/**
+ * Node-only libktx bootstrap used by tests. The browser bundle never imports it.
+ */
+export type NodeKtxHooks = {
+    createKtxModuleNode: (options?: any) => Promise<any>;
+    readFileBytes: (source: string) => Promise<ArrayBuffer>;
+};
+
+let nodeKtxHooks: NodeKtxHooks | undefined;
+
+/** Installed by Node tests before the factory loads a local `.ktx2` file. */
+export function useNodeKtxHooks(hooks: NodeKtxHooks): void {
+    nodeKtxHooks = hooks;
+}
+
+export function getNodeKtxHooks(): NodeKtxHooks | undefined {
+    return nodeKtxHooks;
+}

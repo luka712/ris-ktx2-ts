@@ -3,6 +3,8 @@ import {readFileSync} from "node:fs";
 import {relative} from "node:path";
 import {fileURLToPath} from "node:url";
 import {Ktx2Factory, Ktx2Texture} from "../src";
+import {useNodeKtxHooks} from "../src/node-runtime";
+import {createKtxModuleNode, readFileBytes} from "./ktx-module-node";
 import {
     KtxCreateStorage,
     KtxErrorCode,
@@ -347,6 +349,7 @@ describe("Ktx2Factory", () => {
     const factory = new Ktx2Factory();
 
     beforeAll(async () => {
+        useNodeKtxHooks({createKtxModuleNode, readFileBytes});
         await factory.initializeAsync();
         await factory.initializeAsync();
     });
