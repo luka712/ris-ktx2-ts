@@ -55,7 +55,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "ris-ktx2-api": "^0.1.0-dev.2.4"
+    "ris-ktx2-api": "^0.1.0"
   },
   "devDependencies": {
     "@typescript/typescript6": "^6.0.2",
