@@ -63,6 +63,15 @@ Published files include `dist/`, `src/`, `libktx.js`, `libktx.wasm`, `LICENSE`, 
 
 Bump `version` on `development` when the next release starts, and merge that commit to `main` to publish it. Setup for the `NPM_TOKEN` secret and provenance is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Planned notes
+
+The items below are planned work. They are not current behavior.
+
+| Release | Addition |
+| --- | --- |
+| 0.2.0 | ASTC compression and creating WebGL textures |
+| Further releases | BC7 compression and creating WebGPU textures |
+
 ## License
 
 [MIT](LICENSE). Copyright (c) 2026 Luka Erkapic.
