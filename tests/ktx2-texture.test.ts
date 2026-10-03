@@ -281,14 +281,10 @@ describe("Ktx2Texture", () => {
     });
 
     describe("compressAstc", () => {
-        it("logs the quality and throws because the method is not implemented", () => {
+        it("throws because the method is not implemented", () => {
             const texture = createTexture();
-            const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
             expect(() => texture.compressAstc(75)).toThrow(/Method not implemented/);
-            expect(consoleSpy).toHaveBeenCalledWith(75);
-
-            consoleSpy.mockRestore();
         });
     });
 

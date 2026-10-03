@@ -96,8 +96,7 @@ export class Ktx2Texture implements IKtx2Texture {
     }
 
     /** @inheritDoc */
-    public compressAstc(quality: number): KtxErrorCode {
-        console.log(quality);
+    public compressAstc(_quality: number): KtxErrorCode {
         throw new Error("Method not implemented.");
     }
 
