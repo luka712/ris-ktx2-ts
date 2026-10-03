@@ -1,25 +1,14 @@
 // src/index.ts
 import wasmUrl from '../libktx.wasm?url';
-import {isNodeRuntime} from "./node-runtime";
 
 export * from "./Ktx2Factory"
 export * from "./Ktx2Texture";
 
 /**
- * Loads the libktx Emscripten module.
- * Browsers fetch the wasm binary and evaluate the glue as a classic script.
- * Node evaluates the same glue with its own `require` so Vitest, and other
- * Node hosts, can initialize {@link Ktx2Factory}.
+ * Loads the libktx Emscripten module in the browser.
+ * The wasm binary is fetched and the glue runs as a classic script.
  */
 export async function createKtxModuleAsync(options: any = {}) {
-    if (isNodeRuntime()) {
-        const {createKtxModuleNode} = await import("./ktx-module-node");
-        return createKtxModuleNode(options);
-    }
-    return createKtxModuleBrowser(options);
-}
-
-async function createKtxModuleBrowser(options: any = {}) {
 
     // 1. Load WASM binary
     const wasmResponse = await fetch(wasmUrl);

@@ -2,7 +2,6 @@ import {Ktx2Texture} from "./Ktx2Texture";
 import {createKtxModuleAsync} from "./index";
 import {type IKtx2Texture, VkFormat, type IKtxTextureCreateInfo, type IKtx2Factory, KtxCreateStorage} from "ris-ktx2-api";
 import {Mapper} from "./Mapper";
-import {isNodeRuntime, isRemoteUrl} from "./node-runtime";
 
 /**
  * The Ktx2Factory class is responsible for loading and creating KTX2 textures.
@@ -68,16 +67,7 @@ export class Ktx2Factory implements IKtx2Factory {
     }
 }
 
-/**
- * Reads a KTX payload. Node loads filesystem paths so tests can open
- * `test-data/cat.ktx2`. Browsers, and absolute http(s) URLs, keep using fetch.
- */
 async function readSourceBytes(source: string): Promise<ArrayBuffer> {
-    if (isNodeRuntime() && !isRemoteUrl(source)) {
-        const {readFileBytes} = await import("./ktx-module-node");
-        return readFileBytes(source);
-    }
-
     const response = await fetch(source);
     return await response.arrayBuffer();
 }
