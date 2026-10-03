@@ -2,9 +2,8 @@ import {defineConfig, type Plugin} from "vite";
 import dts from "vite-plugin-dts";
 
 /**
- * Fail the library build if a Node filesystem import reaches dist.
- * A consumer browser build parses every published chunk, and named `node:fs`
- * imports fail there. The filesystem loader lives under tests/ and is not an entry.
+ * This package is browser-only. Fail the library build if a Node filesystem
+ * import reaches dist, because a consumer browser build parses every published chunk.
  */
 function rejectNodeFilesystemInBrowserBuild(): Plugin {
     return {

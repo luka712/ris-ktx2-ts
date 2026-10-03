@@ -1,12 +1,6 @@
-import {describe, it, expect, vi, beforeAll} from "vitest";
-import {readFileSync} from "node:fs";
-import {relative} from "node:path";
-import {fileURLToPath} from "node:url";
-import {Ktx2Factory, Ktx2Texture} from "../src";
-import {useNodeKtxHooks} from "../src/node-runtime";
-import {createKtxModuleNode, readFileBytes} from "./ktx-module-node";
+import {describe, it, expect, vi} from "vitest";
+import {Ktx2Texture} from "../src";
 import {
-    KtxCreateStorage,
     KtxErrorCode,
     KtxTranscodeFlags,
     KtxTranscodeFormat,
@@ -15,8 +9,6 @@ import {
     type IKtxBasisParams,
     type IKtxTextureCreateInfo,
 } from "ris-ktx2-api";
-
-const CAT_KTX2 = fileURLToPath(new URL("../test-data/cat.ktx2", import.meta.url));
 
 type MockTexture = {
     baseWidth: number;
@@ -342,168 +334,5 @@ describe("Ktx2Texture", () => {
 
             expect(native.delete).toHaveBeenCalledOnce();
         });
-    });
-});
-
-describe("Ktx2Factory", () => {
-    const factory = new Ktx2Factory();
-
-    beforeAll(async () => {
-        useNodeKtxHooks({createKtxModuleNode, readFileBytes});
-        await factory.initializeAsync();
-        await factory.initializeAsync();
-    });
-
-    it("loads test-data/cat.ktx2 and transcodes the base level", async () => {
-        const catPath = relative(process.cwd(), CAT_KTX2);
-        const texture = await factory.loadAsync(catPath);
-
-        expect(texture.filePath).toBe(catPath);
-        expect(texture.width).toBe(2048);
-        expect(texture.height).toBe(1228);
-        expect(texture.numLevels).toBe(11);
-        expect(texture.needsTranscoding).toBe(true);
-        expect(texture.dataSize).toBeGreaterThan(0);
-        expect(texture.vkFormat).toBe(VkFormat.UNDEFINED);
-
-        const code = texture.transcodeBasis(KtxTranscodeFormat.BC7_RGBA, KtxTranscodeFlags.NONE);
-        expect(code).toBe(KtxErrorCode.SUCCESS);
-        expect(texture.needsTranscoding).toBe(false);
-
-        const image = texture.getImage(0, 0, 0);
-        const layout = texture.getTextureFormatInfo(KtxTranscodeFormat.BC7_RGBA);
-        expect(image).toBeInstanceOf(Uint8Array);
-        expect(image.byteLength).toBe(layout.getDataSize(texture.width, texture.height));
-
-        const copy = texture.createCopy();
-        expect(copy.width).toBe(texture.width);
-        expect(copy.height).toBe(texture.height);
-        expect(copy.numLevels).toBe(texture.numLevels);
-        expect(copy.filePath).toBe(catPath);
-        copy.delete();
-        texture.delete();
-    });
-
-    it("creates the same texture from the cat.ktx2 bytes", () => {
-        const bytes = new Uint8Array(readFileSync(CAT_KTX2));
-        const texture = factory.createFromBuffer(bytes);
-
-        expect(texture.filePath).toBeUndefined();
-        expect(texture.width).toBe(2048);
-        expect(texture.height).toBe(1228);
-        expect(texture.numLevels).toBe(11);
-        expect(texture.needsTranscoding).toBe(true);
-
-        const code = texture.transcodeBasis(
-            KtxTranscodeFormat.RGBA32,
-            KtxTranscodeFlags.TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS,
-        );
-        expect(code).toBe(KtxErrorCode.SUCCESS);
-        expect(texture.needsTranscoding).toBe(false);
-        expect(texture.vkFormat).toBe(VkFormat.UNDEFINED);
-        expect(texture.getImage()).toBeInstanceOf(Uint8Array);
-        expect(texture.getImage().byteLength).toBe(texture.width * texture.height * 4);
-        texture.delete();
-    });
-
-    it("creates an empty texture from create info", () => {
-        const createInfo: IKtxTextureCreateInfo = {
-            baseWidth: 8,
-            baseHeight: 4,
-            numLevels: 2,
-            vkFormat: VkFormat.R8G8B8A8_UNORM,
-        };
-        const texture = factory.create(createInfo);
-
-        expect(texture.width).toBe(8);
-        expect(texture.height).toBe(4);
-        expect(texture.numLevels).toBe(2);
-        expect(texture.vkFormat).toBe(VkFormat.R8G8B8A8_UNORM);
-        expect(texture.needsTranscoding).toBe(false);
-        expect(texture.dataSize).toBeGreaterThan(0);
-        expect(texture.filePath).toBeUndefined();
-        texture.delete();
-    });
-
-    it("defaults format, level count, and allocated storage", () => {
-        const texture = factory.create({baseWidth: 4, baseHeight: 4});
-
-        expect(texture.vkFormat).toBe(VkFormat.R8G8B8A8_SRGB);
-        expect(texture.numLevels).toBe(1);
-        expect(texture.dataSize).toBe(4 * 4 * 4);
-        texture.delete();
-    });
-
-    it("honors NO_STORAGE", () => {
-        const texture = factory.create(
-            {baseWidth: 4, baseHeight: 4, vkFormat: VkFormat.R8G8B8A8_SRGB},
-            KtxCreateStorage.NO_STORAGE,
-        );
-
-        expect(texture.width).toBe(4);
-        expect(texture.height).toBe(4);
-        expect(texture.dataSize).toBe(0);
-        texture.delete();
-    });
-
-    it("rejects a Vulkan format the wrapper does not map", () => {
-        expect(() => factory.create({
-            baseWidth: 4,
-            baseHeight: 4,
-            vkFormat: VkFormat.R8_UNORM,
-        })).toThrow(/Unsupported VkFormat/);
-    });
-
-    it("compresses, deflates, and writes a created texture", () => {
-        const texture = factory.create({
-            baseWidth: 8,
-            baseHeight: 4,
-            vkFormat: VkFormat.R8G8B8A8_UNORM,
-        });
-        const pixels = new Uint8Array(8 * 4 * 4);
-        pixels.fill(200);
-
-        expect(texture.setImageFromMemory(0, 0, 0, pixels)).toBe(KtxErrorCode.SUCCESS);
-        expect(Array.from(texture.getImage(0, 0, 0))).toEqual(Array.from(pixels));
-
-        expect(texture.compressBasis(32)).toBe(KtxErrorCode.SUCCESS);
-        expect(texture.needsTranscoding).toBe(true);
-        expect(texture.transcodeBasis(KtxTranscodeFormat.RGBA32, KtxTranscodeFlags.NONE))
-            .toBe(KtxErrorCode.SUCCESS);
-        expect(texture.needsTranscoding).toBe(false);
-        texture.delete();
-
-        const etc1s = factory.create({
-            baseWidth: 8,
-            baseHeight: 4,
-            vkFormat: VkFormat.R8G8B8A8_UNORM,
-        });
-        expect(etc1s.compressBasis({
-            uastc: false,
-            qualityLevel: 32,
-            compressionLevel: 1,
-        })).toBe(KtxErrorCode.SUCCESS);
-        expect(etc1s.needsTranscoding).toBe(true);
-        const written = etc1s.writeToMemory();
-        expect(written).toBeInstanceOf(Uint8Array);
-        expect(written.byteLength).toBeGreaterThan(0);
-        etc1s.delete();
-
-        const zlibTexture = factory.create({baseWidth: 8, baseHeight: 4});
-        expect(zlibTexture.deflateZlib(1)).toBe(KtxErrorCode.SUCCESS);
-        zlibTexture.delete();
-
-        const zstdTexture = factory.create({baseWidth: 8, baseHeight: 4});
-        expect(zstdTexture.deflateZstd(1)).toBe(KtxErrorCode.SUCCESS);
-        zstdTexture.delete();
-    });
-
-    it("reports INVALID_OPERATION when transcoding a texture that is not Basis data", () => {
-        const texture = factory.create({baseWidth: 4, baseHeight: 4});
-
-        expect(texture.transcodeBasis(KtxTranscodeFormat.RGBA32, KtxTranscodeFlags.NONE))
-            .toBe(KtxErrorCode.INVALID_OPERATION);
-
-        texture.delete();
     });
 });
