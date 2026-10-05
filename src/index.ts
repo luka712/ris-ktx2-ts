@@ -5,8 +5,8 @@ export * from "./Ktx2Factory"
 export * from "./Ktx2Texture";
 
 /**
- * Loads the libktx Emscripten module in the browser.
- * The wasm binary is fetched and the glue runs as a classic script.
+ * Loads the libktx Emscripten module in the browser, on the page or in a worker.
+ * The wasm binary is fetched. The classic-script glue is evaluated in this realm.
  */
 export async function createKtxModuleAsync(options: any = {}) {
 
@@ -17,15 +17,10 @@ export async function createKtxModuleAsync(options: any = {}) {
     // 2. Load the JS glue code
     const {default: glueCode} = await import('../libktx.js?raw');
 
-    // 3. Create blob URL and inject a script
-    const module = new Function(
-        'globalThis',
-        `${glueCode}\nreturn globalThis.LIBKTX;`
-    )(globalThis);
+    // libktx.js contains backticks and ${}, so concatenate. var LIBKTX is local
+    // to the function; return that binding instead of reading globalThis.
+    const LIBKTX = new Function(glueCode + "\nreturn LIBKTX;")();
 
-    const LIBKTX = module;
-
-    // 3. Initialize
     return LIBKTX({
         wasmBinary,
         ...options,
