@@ -18,22 +18,12 @@ export async function createKtxModuleAsync(options: any = {}) {
     const {default: glueCode} = await import('../libktx.js?raw');
 
     // 3. Create blob URL and inject a script
-    const blob = new Blob([glueCode], {type: 'text/javascript'});
-    const scriptUrl = URL.createObjectURL(blob);
+    const module = new Function(
+        'globalThis',
+        `${glueCode}\nreturn globalThis.LIBKTX;`
+    )(globalThis);
 
-    // 4. Load the script
-    await new Promise<void>((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = scriptUrl;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load libktx.js'));
-        document.head.appendChild(script);
-    });
-
-    // 5. Delete blob URL
-    URL.revokeObjectURL(scriptUrl);
-
-    const LIBKTX = (window as any).LIBKTX;
+    const LIBKTX = module;
 
     // 3. Initialize
     return LIBKTX({
