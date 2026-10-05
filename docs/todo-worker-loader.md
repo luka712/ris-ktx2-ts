@@ -1,5 +1,7 @@
 # Worker-safe libktx loader
 
+The preferred loader is implemented in `createKtxModuleAsync`: `new Function(glueCode + "\nreturn LIBKTX;")()`, then `LIBKTX({ wasmBinary, ...options })`. No `document` script injection and no `window.LIBKTX` read.
+
 The sibling viewer (`ris-ktx2-viewer-ts`, notes in `docs/todo-worker-encoding.md`) wants KTX2 encoding off the main thread so the UI stays responsive. That only works if this package can create a KTX module inside the worker. The viewer can paper over the current loader with a DOM shim. The supported fix belongs here.
 
 ## Goal
