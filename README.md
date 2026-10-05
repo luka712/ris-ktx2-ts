@@ -134,6 +134,7 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development and release information
 * BC7 compression
 * WebGL texture creation
 * WebGPU texture creation
+* Load libktx in a Web Worker without `document` or `window` ([notes](docs/todo-worker-loader.md))
 
 ## License
 
