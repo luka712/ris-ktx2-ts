@@ -1,19 +1,19 @@
-import {
-    type IKtx2Texture,
-    type IKtxBasisParams, type IKtxTextureCreateInfo,
-    KtxErrorCode,
-    KtxTranscodeFlags,
-    KtxTranscodeFormat,
-    TextureFormatInfo,
-    VkFormat
-} from "ris-ktx2-api";
 import {Mapper} from "./Mapper";
-
-/** The offset to number levels in binary header */
-const NUM_LEVELS_OFFSET = 40;
+import type {IKtx2Texture} from "./IKtx2Texture";
+import type {IKtxTextureCreateInfo} from "./IKtxTextureCreateInfo";
+import {VkFormat} from "./VkFormat";
+import type {IKtxBasisParams} from "./IKtxBasisParams";
+import {KtxTranscodeFormat} from "./KtxTranscodeFormat";
+import {KtxTranscodeFlags} from "./KtxTranscodeFlags";
+import type {KtxErrorCode} from "./KtxErrorCode";
+import {KtxUastcFlags} from "./KtxUastcFlags";
+import {TextureFormatInfo} from "./TextureFormatInfo";
+import {detectKtxContainer, readNumLevels, toUint8Array} from "./KtxContainer";
 
 /**
- * The KTX2 texture class.
+ * libktx-backed implementation of {@link IKtx2Texture}. Create instances
+ * through {@link Ktx2Factory}.
+ * @internal
  */
 export class Ktx2Texture implements IKtx2Texture {
 
@@ -25,12 +25,16 @@ export class Ktx2Texture implements IKtx2Texture {
 
     private _numLevels = 0;
 
+    /** `true` for KTX1 data. libktx has no `vkFormat` for KTX1 textures. */
+    private _isKtx1 = false;
+
     /**
-     * The constructor.
-     * @param ktxLib - The KTX library.
-     * @param ktxTexture - The underlying KTX texture.
-     * @param data - The KTX binary, self or create info. Required to pull the meta data.
-     * @param filePath - The file path of the texture.
+     * Wraps a native libktx texture.
+     * @param ktxLib - The libktx module.
+     * @param ktxTexture - The native libktx texture.
+     * @param data - Source of `numLevels`: the KTX or KTX2 file bytes (read
+     * from the header), the create info, or the texture being copied.
+     * @param filePath - URL or file name the texture was loaded from.
      */
     constructor(ktxLib: any,
                 ktxTexture: any,
@@ -39,51 +43,45 @@ export class Ktx2Texture implements IKtx2Texture {
         this._ktxLib = ktxLib;
         this._ktxTexture = ktxTexture;
         this.filePath = filePath;
-        this.width = ktxTexture.baseWidth;
-        this.height = ktxTexture.baseHeight;
-        this.dataSize = ktxTexture.dataSize;
-        this.vkFormat = ktxTexture.vkFormat;
 
         if (data instanceof Ktx2Texture) {
-            // Just copy properties.
-            this._numLevels = data.numLevels;
-        } else if (data instanceof Uint8Array) {
-            // Get properties from binary header.
-            this._assignBufferProperties(data);
+            // Copy: keep the source's metadata.
+            this._numLevels = data._numLevels;
+            this._isKtx1 = data._isKtx1;
+        } else if (ArrayBuffer.isView(data)) {
+            // File bytes, as any view type: read the header.
+            const bytes = toUint8Array(data);
+            this._isKtx1 = detectKtxContainer(bytes) === "ktx1";
+            this._numLevels = readNumLevels(bytes);
         } else {
-            // Assign properties from create info.
-            this._assignCreateInfoProperties(data as IKtxTextureCreateInfo);
+            // Create info.
+            this._numLevels = (data as IKtxTextureCreateInfo).numLevels ?? 0;
         }
     }
-
-
-    private _assignBufferProperties(buffer: Uint8Array) {
-        const view = new DataView(
-            buffer.buffer,
-            buffer.byteOffset,
-            buffer.byteLength
-        );
-        this._numLevels = view.getUint32(NUM_LEVELS_OFFSET, true);
-    }
-
-    private _assignCreateInfoProperties(createInfo: IKtxTextureCreateInfo) {
-        this._numLevels = createInfo.numLevels ?? 0;
-    }
-
-    /** @inheritDoc */
-    public readonly vkFormat: VkFormat;
 
     /** @inheritdoc */
     public readonly filePath?: string;
 
     /** @inheritdoc */
-    public readonly width;
+    public get width(): number {
+        return this._ktxTexture.baseWidth;
+    }
 
     /** @inheritdoc */
-    public readonly height;
+    public get height(): number {
+        return this._ktxTexture.baseHeight;
+    }
 
     /** @inheritdoc */
-    public readonly dataSize;
+    public get dataSize(): number {
+        return this._ktxTexture.dataSize;
+    }
+
+    /** @inheritDoc */
+    public get vkFormat(): VkFormat {
+        // libktx logs an error and returns 0 when vkFormat is read on KTX1.
+        return this._isKtx1 ? VkFormat.UNDEFINED : this._ktxTexture.vkFormat;
+    }
 
     /** @inheritdoc */
     public get needsTranscoding(): boolean {
@@ -96,42 +94,67 @@ export class Ktx2Texture implements IKtx2Texture {
     }
 
     /** @inheritDoc */
-    public compressAstc(quality: number): KtxErrorCode {
-        console.log(quality);
+    public compressAstc(_quality: number): KtxErrorCode {
         throw new Error("Method not implemented.");
     }
 
     /** @inheritDoc */
     public getImage(level = 0, layer = 0, faceSlice = 0): Uint8Array {
-        return this._ktxTexture.getImage(level, layer, faceSlice);
+        if (this.needsTranscoding) {
+            throw new Error("getImage: the texture holds Basis Universal data. Call transcodeBasis first.");
+        }
+        const image = this._ktxTexture.getImage(level, layer, faceSlice);
+        if (!image) {
+            throw new Error(`getImage: libktx returned no image for level ${level}, layer ${layer}, faceSlice ${faceSlice}.`);
+        }
+        return image;
     }
 
     /** @inheritDoc */
-    public compressBasis(basisParams: IKtxBasisParams | number): KtxErrorCode {
+    public compressBasis(basisParams: IKtxBasisParams): KtxErrorCode {
         const ktxBasisParams = new this._ktxLib.basisParams();
 
-        if (typeof basisParams === "number") {
-            ktxBasisParams.quality = basisParams;
-        } else {
+        try {
+            ktxBasisParams.verbose = basisParams.verbose === true;
 
-            ktxBasisParams.verbose = basisParams.verbose == true;
-            if (basisParams.uastc == true) {
+            // libktx defaults to one thread; only pass larger values.
+            if (basisParams.threadCount && basisParams.threadCount > 1) {
+                ktxBasisParams.threadCount = basisParams.threadCount;
+            }
+
+            if (basisParams.normalMap !== undefined) {
+                ktxBasisParams.normalMap = basisParams.normalMap;
+            }
+
+            if (basisParams.inputSwizzle !== undefined) {
+                ktxBasisParams.inputSwizzle = Mapper.mapInputSwizzle(basisParams.inputSwizzle);
+            }
+
+            if (basisParams.uastc === true) {
+                // UASTC: the level comes from uastcFlags. compressionLevel and
+                // qualityLevel are ETC1S-only and are not set.
                 ktxBasisParams.uastc = true;
-                ktxBasisParams.compressionLevel = basisParams.compressionLevel ?? 2;
+                ktxBasisParams.uastcFlags = Mapper.mapUastcFlags(
+                    this._ktxLib,
+                    basisParams.uastcFlags ?? KtxUastcFlags.LEVEL_DEFAULT,
+                );
                 ktxBasisParams.uastcRDO = basisParams.uastcRDO ?? false;
                 ktxBasisParams.uastcRDOQualityScalar = basisParams.uastcRDOQualityScalar ?? 1;
             }
-            // ECT1S
             else {
+                // ETC1S
                 ktxBasisParams.uastc = false;
-                ktxBasisParams.noSSE = true; // True to forbid use of the SSE instruction set. Ignored if CPU does not support SSE.
+                ktxBasisParams.noSSE = true; // Forbid SSE. Ignored when the CPU has no SSE.
                 ktxBasisParams.qualityLevel = basisParams.qualityLevel ?? 128;
                 ktxBasisParams.compressionLevel = basisParams.compressionLevel ?? 2;
             }
-        }
 
-        const errorCode = this._ktxTexture.compressBasis(ktxBasisParams);
-        return Mapper.mapErrorCodeFromKtxLib(errorCode);
+            const errorCode = this._ktxTexture.compressBasis(ktxBasisParams);
+            return Mapper.mapErrorCodeFromKtxLib(errorCode);
+        } finally {
+            // basisParams is an Embind object and must be freed explicitly.
+            ktxBasisParams.delete?.();
+        }
     }
 
     /** @inheritDoc */
@@ -139,9 +162,6 @@ export class Ktx2Texture implements IKtx2Texture {
 
         const transcodeTarget = this._ktxLib.TranscodeTarget;
         let ktxTranscodeFormat = null;
-
-        const transcodeFlagsTarget = this._ktxLib.TranscodeFlags;
-        let ktxTranscodeFlag = null;
 
         // Must have at least 1 format.
         if (transcodeFormat == KtxTranscodeFormat.BC7_RGBA) {
@@ -155,31 +175,21 @@ export class Ktx2Texture implements IKtx2Texture {
         } else if (transcodeFormat == KtxTranscodeFormat.RGBA32) {
             ktxTranscodeFormat = transcodeTarget.RGBA32;
         } else {
-            throw new Error("Unsupported transcodeFormat");
+            throw new Error(`Unsupported transcodeFormat: ${KtxTranscodeFormat[transcodeFormat] ?? transcodeFormat}`);
         }
 
-        if (transcodeFlags == KtxTranscodeFlags.TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS) {
-            ktxTranscodeFlag = transcodeFlagsTarget.TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS;
-        }
+        const ktxTranscodeFlags = Mapper.mapTranscodeFlags(transcodeFlags);
 
-        const errorCode = this._ktxTexture.transcodeBasis(ktxTranscodeFormat, ktxTranscodeFlag);
+        const errorCode = this._ktxTexture.transcodeBasis(ktxTranscodeFormat, ktxTranscodeFlags);
         return Mapper.mapErrorCodeFromKtxLib(errorCode);
     }
 
     /** @inheritDoc */
-    public getTextureFormatInfo(format: KtxTranscodeFormat | VkFormat): TextureFormatInfo {
-        if (format == KtxTranscodeFormat.ASTC_4X4_RGBA || format == VkFormat.ASTC_4X4_UNORM_BLOCK) {
-            return TextureFormatInfo.astc4x4rgba();
-        } else if (format == KtxTranscodeFormat.BC7_RGBA || format == VkFormat.BC7_UNORM_BLOCK) {
-            return TextureFormatInfo.bc7();
-        } else if (format == KtxTranscodeFormat.BC3_RGBA || format == VkFormat.BC3_UNORM_BLOCK) {
-            return TextureFormatInfo.bc3();
-        } else if (format == KtxTranscodeFormat.ETC2_RGBA || format == VkFormat.ETC2_R8G8B8A8_UNORM_BLOCK) {
-            return TextureFormatInfo.etc2rgba();
-        } else if (format == KtxTranscodeFormat.RGBA32 || format == VkFormat.R8G8B8A8_UNORM || format == VkFormat.R8G8B8A8_SRGB) {
-            return TextureFormatInfo.rgba32();
-        } else {
-            throw new Error("Unrecognized texture format for " + format);
+    public getTextureFormatInfo(format: VkFormat): TextureFormatInfo {
+        try {
+            return TextureFormatInfo.fromVkFormat(format);
+        } catch {
+            throw new Error(`Unrecognized texture format for ${VkFormat[format] ?? format}`);
         }
     }
 

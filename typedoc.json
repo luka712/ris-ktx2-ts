@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "tsconfig": "tsconfig.json",
+  "out": "docs/api",
+  "readme": "none",
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "githubPages": true,
+  "includeVersion": true,
+  "useFirstParagraphOfCommentAsSummary": true,
+  "treatWarningsAsErrors": true,
+  "sourceLinkTemplate": "https://github.com/luka712/ris-ktx2-ts/blob/{gitRevision}/{path}#L{line}",
+  "hostedBaseUrl": "https://luka712.github.io/ris-ktx2-ts/",
+  "navigationLinks": {
+    "GitHub": "https://github.com/luka712/ris-ktx2-ts",
+    "npm": "https://www.npmjs.com/package/ris-ktx2"
+  }
+}
