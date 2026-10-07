@@ -8,7 +8,7 @@ import {
     VkFormat,
     type IKtxBasisParams,
     type IKtxTextureCreateInfo,
-} from "ris-ktx2-api";
+} from "../src";
 
 type MockTexture = {
     baseWidth: number;
