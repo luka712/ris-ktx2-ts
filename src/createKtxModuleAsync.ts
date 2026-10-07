@@ -20,7 +20,7 @@ import wasmUrl from '../libktx.wasm?url';
  * `wasmBinary`, so they can override it.
  * @returns The initialized libktx module. It is untyped and its API belongs
  * to libktx, not to this package.
- * @public
+ * @internal
  */
 export async function createKtxModuleAsync(options: any = {}): Promise<any> {
 

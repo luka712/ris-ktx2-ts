@@ -8,7 +8,6 @@ First public release.
 
 - `Ktx2Factory`, which implements `IKtx2Factory`: `initializeAsync`, `loadAsync`, `create`, and `createFromBuffer`.
 - `IKtx2Texture`, returned by every factory method: dimensions, mip level count, Basis Universal encoding (ETC1S, and UASTC with level and hint flags, plus `normalMap`, `inputSwizzle`, and `threadCount`), transcoding to BC7, BC3, ETC2 RGBA, ASTC 4×4, and RGBA32, image get and set, zlib and Zstandard supercompression, copy, write to memory, and `getTextureFormatInfo(vkFormat)` for the block layout of a `VkFormat`.
-- `createKtxModuleAsync`, which loads libktx on the main thread or in a Web Worker without `document` or `window`.
 - Interfaces, enumerations, and `TextureFormatInfo` ship in this package. The separate `ris-ktx2-api` package is no longer needed.
 - Khronos `libktx.js` and `libktx.wasm` for browser use. The built package inlines the wasm binary.
 - TypeDoc API reference: https://luka712.github.io/ris-ktx2-ts/

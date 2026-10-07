@@ -1,6 +1,5 @@
 // src/index.ts
 export * from "./Ktx2Factory";
-export * from "./createKtxModuleAsync";
 export * from "./IKtx2Factory";
 export * from "./IKtx2Texture";
 export * from "./IKtxBasisParams";
