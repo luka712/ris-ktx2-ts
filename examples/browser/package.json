@@ -1,0 +1,11 @@
+{
+  "name": "ris-ktx2-example-browser",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Browser example for ris-ktx2. Uses the library source in ../../src and the root devDependencies.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p . && vite build"
+  }
+}

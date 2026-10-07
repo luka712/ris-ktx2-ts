@@ -1,9 +1,15 @@
 /**
  * Target formats for transcoding a Basis Universal (ETC1S or UASTC) texture.
  *
- * Numeric values match the libktx `ktx_transcode_fmt_e` enumerators.
- * Gaps in the numbering are formats libktx does not expose (there is no
- * equivalent `VkFormat` for the omitted targets).
+ * Numeric values match the libktx `ktx_transcode_fmt_e` enumerators. Gaps
+ * in the numbering are values libktx does not define.
+ *
+ * {@link IKtx2Texture.transcodeBasis} currently supports
+ * {@link KtxTranscodeFormat.ETC2_RGBA}, {@link KtxTranscodeFormat.BC3_RGBA},
+ * {@link KtxTranscodeFormat.BC7_RGBA}, {@link KtxTranscodeFormat.ASTC_4X4_RGBA},
+ * and {@link KtxTranscodeFormat.RGBA32}. The members with a `KTX_TTF_` prefix,
+ * {@link KtxTranscodeFormat.BC1_OR_3}, and
+ * {@link KtxTranscodeFormat.NO_SELECTION} make it throw.
  */
 export enum KtxTranscodeFormat {
     /**
@@ -25,8 +31,8 @@ export enum KtxTranscodeFormat {
     KTX_TTF_BC1_RGB = 2,
 
     /**
-     * BC3 compressed RGBA.
-     * Common on desktop devices. Widely supported block compression for color textures.
+     * BC3 (DXT5) RGBA. 4×4 blocks, 16 bytes per block.
+     * Widely supported on desktop GPUs.
      */
     BC3_RGBA = 3,
 
@@ -43,9 +49,8 @@ export enum KtxTranscodeFormat {
     KTX_TTF_BC5_RG = 5,
 
     /**
-     * BC7 compressed RGBA.
-     * High quality block compression for color textures.
-     * Supports an alpha channel and is suitable for diffuse and physically based textures.
+     * BC7 RGBA. 4×4 blocks, 16 bytes per block.
+     * Higher quality than BC3, with alpha. Supported on most desktop GPUs.
      */
     BC7_RGBA = 6,
 
@@ -62,15 +67,15 @@ export enum KtxTranscodeFormat {
     KTX_TTF_PVRTC1_4_RGBA = 9,
 
     /**
-     * ASTC 4×4 RGBA.
-     * Common on mobile devices, especially Apple. High quality block compression
-     * for color textures, including an alpha channel.
+     * ASTC 4×4 RGBA. 4×4 blocks, 16 bytes per block.
+     * Common on mobile GPUs, including Apple devices. This is a transcode
+     * target only. Encoding ASTC directly is not supported.
      */
     ASTC_4X4_RGBA = 10,
 
     /**
-     * Uncompressed 32bpp RGBA in raster order (R, G, B, A).
-     * Supported on all devices.
+     * Uncompressed 32-bit RGBA, 8 bits per channel, in raster order (R, G, B, A).
+     * Works on every GPU, at four bytes per pixel.
      */
     RGBA32 = 13,
 

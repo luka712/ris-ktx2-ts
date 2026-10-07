@@ -7,6 +7,8 @@
  * combining it with a level changes the value `LEVEL_MASK` extracts.
  * Hints at bit 4 and above (`16`, `64`, `128`, `256`) combine with a level
  * with bitwise OR and leave bits 0–3 unchanged.
+ *
+ * Set them on {@link IKtxBasisParams.uastcFlags}.
  */
 export enum KtxUastcFlags {
     /**

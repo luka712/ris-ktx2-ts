@@ -1,8 +1,10 @@
 # Worker-safe libktx loader
 
-The preferred loader is implemented in `createKtxModuleAsync`: `new Function(glueCode + "\nreturn LIBKTX;")()`, then `LIBKTX({ wasmBinary, ...options })`. No `document` script injection and no `window.LIBKTX` read.
+**Status: done**, except for the automated worker smoke test (checklist item 7). The loader lives in `src/createKtxModuleAsync.ts` and works on the main thread and in a worker. The rest of this document is kept as background on why it is written this way.
 
-The sibling viewer (`ris-ktx2-viewer-ts`, notes in `docs/todo-worker-encoding.md`) wants KTX2 encoding off the main thread so the UI stays responsive. That only works if this package can create a KTX module inside the worker. The viewer can paper over the current loader with a DOM shim. The supported fix belongs here.
+`createKtxModuleAsync` runs `new Function(glueCode + "\nreturn LIBKTX;")()`, then `LIBKTX({ wasmBinary, ...options })`. It does not inject a `<script>` element and does not read `window.LIBKTX`. The package has no Node path.
+
+The sibling viewer (`ris-ktx2-viewer-ts`, notes in `docs/todo-worker-encoding.md`) wanted KTX2 encoding off the main thread so the UI stays responsive. That only works if this package can create a libktx module inside the worker. The viewer could have worked around the old loader with a DOM shim, but the fix belonged here.
 
 ## Goal
 
@@ -15,9 +17,9 @@ The factory cache is per realm. The worker constructs and initializes its own `K
 
 A Node path may exist in addition to those two browser paths. It is optional for this work. It must not replace or regress the main-thread browser path.
 
-## Current blocker
+## Original blocker
 
-`createKtxModuleAsync` in `src/index.ts` already does two things that are fine in a worker:
+`createKtxModuleAsync` (then in `src/index.ts`) already does two things that are fine in a worker:
 
 1. `fetch(wasmUrl)` and `arrayBuffer()` to get the wasm bytes.
 2. `import("../libktx.js?raw")` to obtain the Emscripten glue as text.
@@ -31,13 +33,15 @@ It then fails in a worker:
 
 Inside the glue, `document` is only touched behind `typeof document != "undefined"` (`document.currentScript`). `ENVIRONMENT_IS_WEB` is `typeof window == "object"`. `ENVIRONMENT_IS_WORKER` is `typeof WorkerGlobalScope != "undefined"`. A real worker is already an Emscripten host. Passing `wasmBinary` means the glue does not have to locate `libktx.wasm` from a script URL.
 
-## Why the viewer shim is not the long-term answer
+## Why a viewer shim was not the answer
 
 The viewer can set `self.window = self` and install a stub `document` whose script element evals the blob URL. That gets a worker running only by imitating this package's private sequence: blob URL, `<script>` injection, then `window.LIBKTX`.
 
 That shim breaks when the loader changes, and a partial `document` can miss `head`, `currentScript`, or load events. Every other worker consumer would copy the same internals. `ris-ktx2` should load libktx without a DOM.
 
 ## Implementation checklist
+
+Items 1 to 6 and 8 are done. Item 7 is open: there is no worker smoke test in this repository yet, because the Vitest tests use a mocked libktx module and no browser runner.
 
 Do this in `createKtxModuleAsync`. The page and the worker share one browser path. A separate Node path is allowed and is not part of this checklist.
 

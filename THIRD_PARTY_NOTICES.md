@@ -1,10 +1,10 @@
 # Third-party notices
 
-`ris-ktx2` is TypeScript written for this repository and distributed under the MIT License (see `LICENSE`). Copyright (c) 2026 Luka Erkapic.
+The `ris-ktx2` TypeScript source is written for this repository and distributed under the MIT License (see `LICENSE`). Copyright (c) 2026 Luka Erkapic.
 
-This package ships the Khronos libktx WebAssembly build (`libktx.js` and `libktx.wasm`) produced from [KTX-Software](https://github.com/KhronosGroup/KTX-Software). Those binaries are redistributed here. The Apache License 2.0 text is included at `LICENSES/Apache-2.0.txt`.
+This package ships the Khronos libktx WebAssembly build (`libktx.js` and `libktx.wasm`) produced from [KTX-Software](https://github.com/KhronosGroup/KTX-Software). Both files are redistributed at the package root. The built `dist/` bundle also embeds them: `libktx.wasm` as a base64 `data:` URL and `libktx.js` as a string. The Apache License 2.0 text is included at `LICENSES/Apache-2.0.txt`.
 
-The TypeScript interfaces, enumerations, and texture-format helpers ship in this same package. `KtxTranscodeFormat`, `KtxTranscodeFlags`, `KtxUastcFlags`, `KtxCreateStorage`, `KtxErrorCode`, and the Basis Universal fields on `IKtxBasisParams` follow the public libktx API.
+The names and numeric values of `KtxTranscodeFormat`, `KtxTranscodeFlags`, `KtxUastcFlags`, `KtxCreateStorage`, and `KtxErrorCode`, and the field names of `IKtxBasisParams`, follow the public libktx API.
 
 ## Khronos KTX-Software / libktx
 
@@ -44,4 +44,4 @@ Vulkan-Headers are dual-licensed Apache-2.0 OR MIT. This package is distributed 
 
 ## Development dependencies
 
-`vite` (MIT), `vite-plugin-dts` (MIT), `vitest` (MIT), `typedoc` (MIT), and `@typescript/typescript6` (Apache-2.0) are used to build, test, and document this package. These tools are not bundled into the published `dist/` entry as application code beyond what the library build emits. Their licenses are recorded in `package-lock.json`.
+`vite` (MIT), `vite-plugin-dts` (MIT), `vitest` (MIT), `typedoc` (MIT), and `@typescript/typescript6` (Apache-2.0) are used to build, test, and document this package. They are not shipped in the published package. Their licenses are recorded in `package-lock.json`.
