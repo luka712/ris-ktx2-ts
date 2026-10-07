@@ -92,6 +92,8 @@ texture.delete();
 
 ## API
 
+Generated API reference: https://luka712.github.io/ris-ktx2-ts/
+
 The package exports:
 
 * `Ktx2Factory`
@@ -121,6 +123,7 @@ It can store GPU-compressed formats such as ASTC, BCn, ETC2, and PVRTC, as well 
 npm run build
 npm test
 npm run clean
+npm run docs
 ```
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development and release information.

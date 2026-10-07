@@ -36,6 +36,7 @@ The workflow does not create branches or change settings. The repository owner c
 3. Settings, Actions, General, Workflow permissions: read and write. The `main` job needs `contents: write` to create the git tag and GitHub release. Both publish jobs request `id-token: write` for provenance.
 4. Default branch `main`, with `.github/workflows/publish.yml` merged there before a provenance publish. npm checks that the publishing workflow exists on the default branch.
 5. Branch `development`, created after that workflow is on `main`.
+6. Settings, Pages, Build and deployment, Source: GitHub Actions. `.github/workflows/docs.yml` deploys the TypeDoc site from `docs/api` on pushes to `main`. The reference is published at https://luka712.github.io/ris-ktx2-ts/.
 
 Trusted publishing (npm OIDC without a token) is not required. Authentication is `NPM_TOKEN`. Provenance is the separate `--provenance` flag.
 

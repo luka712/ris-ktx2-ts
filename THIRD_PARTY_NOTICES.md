@@ -44,4 +44,4 @@ Vulkan-Headers are dual-licensed Apache-2.0 OR MIT. This package is distributed 
 
 ## Development dependencies
 
-`vite` (MIT), `vite-plugin-dts` (MIT), `vitest` (MIT), and `@typescript/typescript6` (Apache-2.0) are used to build and test this package. These tools are not bundled into the published `dist/` entry as application code beyond what the library build emits. Their licenses are recorded in `package-lock.json`.
+`vite` (MIT), `vite-plugin-dts` (MIT), `vitest` (MIT), `typedoc` (MIT), and `@typescript/typescript6` (Apache-2.0) are used to build, test, and document this package. These tools are not bundled into the published `dist/` entry as application code beyond what the library build emits. Their licenses are recorded in `package-lock.json`.
