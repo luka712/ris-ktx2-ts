@@ -2,8 +2,7 @@
 
 TypeScript KTX2 texture library powered by Khronos [`libktx`](https://github.com/KhronosGroup/KTX-Software).
 
-`ris-ktx2` provides the runtime implementation and WebAssembly build.
-[`ris-ktx2-api`](https://www.npmjs.com/package/ris-ktx2-api) contains the shared interfaces, enums, and types.
+`ris-ktx2` is one package: the runtime, the WebAssembly build, and the TypeScript interfaces, enumerations, and texture-format helpers.
 
 ## Features
 
@@ -35,11 +34,11 @@ The package is ESM-only.
 ### Create a texture
 
 ```ts
-import { Ktx2Factory } from "ris-ktx2";
 import {
+    Ktx2Factory,
     KtxCreateStorage,
     VkFormat,
-} from "ris-ktx2-api";
+} from "ris-ktx2";
 
 const factory = new Ktx2Factory();
 
@@ -75,7 +74,7 @@ texture.delete();
 import {
     KtxTranscodeFlags,
     KtxTranscodeFormat,
-} from "ris-ktx2-api";
+} from "ris-ktx2";
 
 const texture = await factory.loadAsync("/textures/example.ktx2");
 
@@ -93,11 +92,14 @@ texture.delete();
 
 ## API
 
+Generated API reference: https://luka712.github.io/ris-ktx2-ts/
+
 The package exports:
 
 * `Ktx2Factory`
 * `Ktx2Texture`
 * `createKtxModuleAsync`
+* Interfaces, enumerations, and helpers such as `IKtx2Factory`, `IKtx2Texture`, `VkFormat`, `KtxTranscodeFormat`, and `TextureFormatInfo`
 
 `Ktx2Factory` is used to initialize the WebAssembly module and create or load textures.
 
@@ -105,12 +107,9 @@ The package exports:
 
 Call `delete()` when a texture is no longer needed to release its native resources.
 
-## Packages
+## Package
 
-| Package                                                      | Description                                 |
-| ------------------------------------------------------------ | ------------------------------------------- |
-| [`ris-ktx2`](https://www.npmjs.com/package/ris-ktx2)         | KTX2 runtime and WebAssembly implementation |
-| [`ris-ktx2-api`](https://www.npmjs.com/package/ris-ktx2-api) | Shared TypeScript API and types             |
+[`ris-ktx2`](https://www.npmjs.com/package/ris-ktx2) is the KTX2 runtime, WebAssembly build, interfaces, enumerations, and texture-format helpers.
 
 ## KTX2
 
@@ -124,6 +123,7 @@ It can store GPU-compressed formats such as ASTC, BCn, ETC2, and PVRTC, as well 
 npm run build
 npm test
 npm run clean
+npm run docs
 ```
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development and release information.

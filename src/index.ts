@@ -3,6 +3,7 @@ import wasmUrl from '../libktx.wasm?url';
 
 export * from "./Ktx2Factory"
 export * from "./Ktx2Texture";
+export * from "./api";
 
 /**
  * Loads the libktx Emscripten module in the browser, on the page or in a worker.

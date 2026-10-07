@@ -1,6 +1,6 @@
 import {Ktx2Texture} from "./Ktx2Texture";
 import {createKtxModuleAsync} from "./index";
-import {type IKtx2Texture, VkFormat, type IKtxTextureCreateInfo, type IKtx2Factory, KtxCreateStorage} from "ris-ktx2-api";
+import {type IKtx2Texture, VkFormat, type IKtxTextureCreateInfo, type IKtx2Factory, KtxCreateStorage} from "./api";
 import {Mapper} from "./Mapper";
 
 /**

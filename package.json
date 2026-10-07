@@ -1,7 +1,7 @@
 {
   "name": "ris-ktx2",
   "version": "0.1.0",
-  "description": "Browser TypeScript wrapper around Khronos libktx for loading, creating, and transcoding KTX2 textures.",
+  "description": "Browser TypeScript library for loading, creating, and transcoding KTX2 textures, including the interfaces, enumerations, and texture-format helpers.",
   "type": "module",
   "author": "Luka Erkapic <erkapic.luka.dev@gmail.com>",
   "license": "MIT",
@@ -52,13 +52,12 @@
     "build": "tsc && vite build",
     "clean": "rm -rf dist",
     "test": "vitest run",
+    "docs": "typedoc --options typedoc.json",
     "prepublishOnly": "npm run build"
-  },
-  "dependencies": {
-    "ris-ktx2-api": "^0.1.0"
   },
   "devDependencies": {
     "@typescript/typescript6": "^6.0.2",
+    "typedoc": "^0.28.20",
     "vite": "^8.1.5",
     "vite-plugin-dts": "^5.0.3",
     "vitest": "^1.6.0"

@@ -6,7 +6,7 @@ import {
     KtxTranscodeFormat,
     TextureFormatInfo,
     VkFormat
-} from "ris-ktx2-api";
+} from "./api";
 import {Mapper} from "./Mapper";
 
 /** The offset to number levels in binary header */

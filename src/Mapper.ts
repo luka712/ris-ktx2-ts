@@ -1,4 +1,4 @@
-import {KtxCreateStorage, KtxErrorCode, VkFormat} from "ris-ktx2-api";
+import {KtxCreateStorage, KtxErrorCode, VkFormat} from "./api";
 
 export class Mapper {
 

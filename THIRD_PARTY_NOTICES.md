@@ -4,7 +4,7 @@
 
 This package ships the Khronos libktx WebAssembly build (`libktx.js` and `libktx.wasm`) produced from [KTX-Software](https://github.com/KhronosGroup/KTX-Software). Those binaries are redistributed here. The Apache License 2.0 text is included at `LICENSES/Apache-2.0.txt`.
 
-TypeScript interfaces and enumerations live in the separate `ris-ktx2-api` package. That package does not vendor these binaries.
+The TypeScript interfaces, enumerations, and texture-format helpers ship in this same package. `KtxTranscodeFormat`, `KtxTranscodeFlags`, `KtxUastcFlags`, `KtxCreateStorage`, `KtxErrorCode`, and the Basis Universal fields on `IKtxBasisParams` follow the public libktx API.
 
 ## Khronos KTX-Software / libktx
 
@@ -36,7 +36,7 @@ Copyright 2015-2026 The Khronos Group Inc.
 
 SPDX-License-Identifier: Apache-2.0 OR MIT
 
-`VkFormat` values used through `ris-ktx2-api` match the Vulkan `VkFormat` enumeration in Vulkan-Headers:
+`VkFormat` enumerator names and numeric values in this package match the Vulkan `VkFormat` enumeration in Vulkan-Headers:
 
 https://github.com/KhronosGroup/Vulkan-Headers
 
@@ -44,4 +44,4 @@ Vulkan-Headers are dual-licensed Apache-2.0 OR MIT. This package is distributed 
 
 ## Development dependencies
 
-`vite` (MIT), `vite-plugin-dts` (MIT), `vitest` (MIT), and `@typescript/typescript6` (Apache-2.0) are used to build and test this package. These tools are not bundled into the published `dist/` entry as application code beyond what the library build emits. Their licenses are recorded in `package-lock.json`.
+`vite` (MIT), `vite-plugin-dts` (MIT), `vitest` (MIT), `typedoc` (MIT), and `@typescript/typescript6` (Apache-2.0) are used to build, test, and document this package. These tools are not bundled into the published `dist/` entry as application code beyond what the library build emits. Their licenses are recorded in `package-lock.json`.
