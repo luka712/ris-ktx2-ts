@@ -4,6 +4,11 @@
  * Names and numeric values match libktx `ktx_error_code_e`.
  * `KTX_ERROR_MAX_ENUM` is not a member: in libktx it aliases
  * {@link KtxErrorCode.DECOMPRESS_CHECKSUM_ERROR} and is not a distinct result.
+ *
+ * {@link IKtx2Texture} methods return the code libktx reported. In
+ * practice the libktx WebAssembly build reports most failures as
+ * {@link KtxErrorCode.INVALID_OPERATION}. A value that is not a member is
+ * thrown as an `Error` that includes the number.
  */
 export enum KtxErrorCode {
     /** The operation succeeded. */

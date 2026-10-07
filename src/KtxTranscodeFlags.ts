@@ -2,10 +2,12 @@
  * Flags that select options for Basis Universal transcoding.
  *
  * Numeric values match the libktx `ktx_transcode_flag_bits_e` enumerators.
- * Combine them with bitwise OR when more than one option applies.
+ *
+ * Combine them with bitwise OR. {@link IKtx2Texture.transcodeBasis} passes
+ * the value to libktx unchanged and throws for bits that are not members.
  */
 export enum KtxTranscodeFlags {
-    /** No special transcoding options. */
+    /** No options. */
     NONE = 0,
 
     /**
@@ -20,7 +22,9 @@ export enum KtxTranscodeFlags {
     /**
      * When transcoding to an opaque format, decode the alpha slice instead of
      * the color slice if the Basis data has alpha. Has no effect when there
-     * is no alpha data.
+     * is no alpha data. Only opaque targets are affected, and
+     * {@link IKtx2Texture.transcodeBasis} does not support any opaque target
+     * in this version.
      */
     TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS = 4,
 

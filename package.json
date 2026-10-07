@@ -53,6 +53,8 @@
     "clean": "rm -rf dist",
     "test": "vitest run",
     "docs": "typedoc --options typedoc.json",
+    "example": "vite --config examples/browser/vite.config.ts",
+    "example:build": "tsc --noEmit -p examples/browser/tsconfig.json && vite build --config examples/browser/vite.config.ts",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
