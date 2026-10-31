@@ -3,10 +3,11 @@ import {KtxErrorCode} from "./KtxErrorCode";
 import {KtxCreateStorage} from "./KtxCreateStorage";
 import {KtxTranscodeFlags} from "./KtxTranscodeFlags";
 import {KtxUastcFlags} from "./KtxUastcFlags";
-import {AstcQualityLevel} from "./AstcQualityLevels";
+import {KtxAstcQualityLevel} from "./KtxAstcQualityLevel";
 import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
 import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
-import {KtxSuperCompressionScheme} from "./KtxSuperCompressionScheme";
+import {KtxSupercompressionScheme} from "./KtxSupercompressionScheme";
+import {KtxDFTransfer} from "./KtxDFTransfer";
 
 /** Every {@link KtxTranscodeFlags} bit that libktx defines. */
 const KNOWN_TRANSCODE_FLAGS =
@@ -123,12 +124,12 @@ export class Mapper {
     }
 
     /**
-     * Maps an {@link AstcQualityLevel} to the libktx
+     * Maps an {@link KtxAstcQualityLevel} to the libktx
      * `pack_astc_quality_levels` Embind enum member of the same name.
      * Throws for unknown values.
      */
-    public static mapAstcQuality(ktxLib: any, quality: AstcQualityLevel): any {
-        return Mapper.mapEmbindEnumByName(ktxLib.pack_astc_quality_levels, AstcQualityLevel, quality, "qualityLevel");
+    public static mapAstcQuality(ktxLib: any, quality: KtxAstcQualityLevel): any {
+        return Mapper.mapEmbindEnumByName(ktxLib.pack_astc_quality_levels, KtxAstcQualityLevel, quality, "qualityLevel");
     }
 
     /**
@@ -165,22 +166,36 @@ export class Mapper {
 
     /**
      * Maps the raw KTX2 `supercompressionScheme` header value
-     * (0 none, 1 BasisLZ, 2 Zstandard, 3 ZLIB) to {@link KtxSuperCompressionScheme}.
+     * (0 none, 1 BasisLZ, 2 Zstandard, 3 ZLIB) to {@link KtxSupercompressionScheme}.
      * @param value - The raw header value.
      * @throws If the value is not a known scheme.
      */
-    public static mapSuperCompressionScheme(value: number): KtxSuperCompressionScheme {
+    public static mapSupercompressionScheme(value: number): KtxSupercompressionScheme {
         switch (value) {
             case 0:
-                return KtxSuperCompressionScheme.NONE;
+                return KtxSupercompressionScheme.NONE;
             case 1:
-                return KtxSuperCompressionScheme.BASIS_LZ;
+                return KtxSupercompressionScheme.BASIS_LZ;
             case 2:
-                return KtxSuperCompressionScheme.ZSTD;
+                return KtxSupercompressionScheme.ZSTD;
             case 3:
-                return KtxSuperCompressionScheme.ZLIB;
+                return KtxSupercompressionScheme.ZLIB;
             default:
                 throw new Error(`Unsupported supercompression scheme: ${value}`);
         }
+    }
+
+    /**
+     * Maps libktx's `oetf` (an Embind `khr_df_transfer` member, or a plain
+     * number) to {@link KtxDFTransfer}.
+     * @param oetf - The value read from the libktx texture.
+     * @throws If the value is not a known transfer function.
+     */
+    public static mapTransferFunction(oetf: any): KtxDFTransfer {
+        const value = typeof oetf === "number" ? oetf : oetf?.value;
+        if (typeof value !== "number" || KtxDFTransfer[value] === undefined) {
+            throw new Error(`Unsupported transfer function: ${String(value)}`);
+        }
+        return value as KtxDFTransfer;
     }
 }

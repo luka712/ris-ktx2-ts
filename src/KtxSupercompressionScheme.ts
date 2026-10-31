@@ -1,7 +1,7 @@
 /**
  * Defines the supercompression schemes supported by the KTX2 container format.
  */
-export enum KtxSuperCompressionScheme {
+export enum KtxSupercompressionScheme {
 
     /**
      * No supercompression is applied.

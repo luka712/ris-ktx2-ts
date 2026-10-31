@@ -6,10 +6,11 @@ import type {TextureFormatInfo} from "./TextureFormatInfo";
 import type {KtxErrorCode} from "./KtxErrorCode";
 import type {IKtxAstcParams} from "./IKtxAstcParams";
 import type {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
-import type {AstcQualityLevel} from "./AstcQualityLevels";
+import type {KtxAstcQualityLevel} from "./KtxAstcQualityLevel";
 import type {IKtx2Factory} from "./IKtx2Factory";
-import type {UploadResult} from "./UploadResult";
-import type {KtxSuperCompressionScheme} from "./KtxSuperCompressionScheme";
+import type {IKtxUploadResult} from "./IKtxUploadResult";
+import type {KtxSupercompressionScheme} from "./KtxSupercompressionScheme";
+import type {KtxDFTransfer} from "./KtxDFTransfer";
 
 /**
  * A KTX2 texture backed by a native libktx texture.
@@ -101,11 +102,11 @@ export interface IKtx2Texture {
      * Supercompression scheme applied to the texture's image data.
      *
      * Reports the scheme currently stored in the native KTX texture:
-     * - {@link KtxSuperCompressionScheme.NONE}: No supercompression.
-     * - {@link KtxSuperCompressionScheme.BASIS_LZ}: Basis Universal LZ supercompression
+     * - {@link KtxSupercompressionScheme.NONE}: No supercompression.
+     * - {@link KtxSupercompressionScheme.BASIS_LZ}: Basis Universal LZ supercompression
      *   used with ETC1S data.
-     * - {@link KtxSuperCompressionScheme.ZSTD}: Zstandard lossless supercompression.
-     * - {@link KtxSuperCompressionScheme.ZLIB}: Zlib lossless supercompression.
+     * - {@link KtxSupercompressionScheme.ZSTD}: Zstandard lossless supercompression.
+     * - {@link KtxSupercompressionScheme.ZLIB}: Zlib lossless supercompression.
      *
      * The value reflects changes made by {@link IKtx2Texture.compressBasis},
      * {@link IKtx2Texture.deflateZstd}, and {@link IKtx2Texture.deflateZlib}.
@@ -113,9 +114,19 @@ export interface IKtx2Texture {
      * @remarks
      * This property describes the KTX container's supercompression scheme,
      * not the GPU texture format. For example, a BC7 texture can use
-     * {@link KtxSuperCompressionScheme.ZSTD} supercompression.
+     * {@link KtxSupercompressionScheme.ZSTD} supercompression.
      */
-    readonly supercompressionScheme: KtxSuperCompressionScheme;
+    readonly supercompressionScheme: KtxSupercompressionScheme;
+
+    /**
+     * Transfer function (OETF) from the texture's data format descriptor.
+     *
+     * {@link KtxDFTransfer.SRGB} means the color data is sRGB-encoded and
+     * should be uploaded with an sRGB format, {@link KtxDFTransfer.LINEAR}
+     * means it is linear. Textures created with {@link IKtx2Factory.create}
+     * take it from their `vkFormat` (for example `R8G8B8A8_SRGB` is sRGB).
+     */
+    readonly oetf: KtxDFTransfer;
 
     /**
      * Transcodes Basis Universal data to a GPU block format or to RGBA32.
@@ -194,7 +205,7 @@ export interface IKtx2Texture {
      * See {@link IKtxAstcParams} for the settings and defaults.
      *
      * @param astcParams - ASTC encoder settings. Omit for 4×4 blocks at
-     * {@link AstcQualityLevel.MEDIUM}.
+     * {@link KtxAstcQualityLevel.MEDIUM}.
      * @returns {@link KtxErrorCode.SUCCESS}, or the libktx error. libktx
      * returns {@link KtxErrorCode.INVALID_OPERATION} when the texture cannot
      * be encoded, for example because it is already block-compressed or
@@ -205,7 +216,7 @@ export interface IKtx2Texture {
      *
      * @example
      * ```ts
-     * texture.compressAstc({ blockDimension: KtxAstcBlockDimension.D6x6, qualityLevel: AstcQualityLevel.THOROUGH });
+     * texture.compressAstc({ blockDimension: KtxAstcBlockDimension.D6x6, qualityLevel: KtxAstcQualityLevel.THOROUGH });
      * ```
      */
     compressAstc(astcParams?: IKtxAstcParams): KtxErrorCode;
@@ -343,7 +354,7 @@ export interface IKtx2Texture {
      * Upload uncompressed or block-compressed data, for example after
      * {@link IKtx2Texture.transcodeBasis} or {@link IKtx2Texture.compressAstc}.
      * The GPU must support the format. Check
-     * {@link UploadResult.error}: `0` (`gl.NO_ERROR`) means success.
+     * {@link IKtxUploadResult.error}: `0` (`gl.NO_ERROR`) means success.
      *
      * The texture is created with libktx's default filters. A texture with
      * one mip level needs `TEXTURE_MIN_FILTER` set to `LINEAR` (or mipmaps)
@@ -355,7 +366,7 @@ export interface IKtx2Texture {
      * @returns The upload result containing the error code, created WebGL texture
      * object, and texture target.
      */
-    glUpload(): UploadResult;
+    glUpload(): IKtxUploadResult;
 
     /**
      * Releases the native texture.

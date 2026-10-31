@@ -10,11 +10,12 @@ import {KtxUastcFlags} from "./KtxUastcFlags";
 import {TextureFormatInfo} from "./TextureFormatInfo";
 import {detectKtxContainer, readNumLevels, readSupercompressionScheme, toUint8Array} from "./KtxContainer";
 import type {IKtxAstcParams} from "./IKtxAstcParams";
-import {AstcQualityLevel} from "./AstcQualityLevels";
+import {KtxAstcQualityLevel} from "./KtxAstcQualityLevel";
 import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
 import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
-import type { UploadResult } from "./UploadResult";
-import {KtxSuperCompressionScheme} from "./KtxSuperCompressionScheme";
+import type { IKtxUploadResult } from "./IKtxUploadResult";
+import {KtxSupercompressionScheme} from "./KtxSupercompressionScheme";
+import type {KtxDFTransfer} from "./KtxDFTransfer";
 
 /**
  * libktx-backed implementation of {@link IKtx2Texture}. Create instances
@@ -35,7 +36,7 @@ export class Ktx2Texture implements IKtx2Texture {
      * libktx's Embind texture does not expose the scheme, so it is read from
      * the file header and updated by the compress and deflate calls.
      */
-    private _supercompressionScheme = KtxSuperCompressionScheme.NONE;
+    private _supercompressionScheme = KtxSupercompressionScheme.NONE;
 
     /** `true` for KTX1 data. libktx has no `vkFormat` for KTX1 textures. */
     private _isKtx1 = false;
@@ -66,7 +67,7 @@ export class Ktx2Texture implements IKtx2Texture {
             const bytes = toUint8Array(data);
             this._isKtx1 = detectKtxContainer(bytes) === "ktx1";
             this._numLevels = readNumLevels(bytes);
-            this._supercompressionScheme = Mapper.mapSuperCompressionScheme(readSupercompressionScheme(bytes));
+            this._supercompressionScheme = Mapper.mapSupercompressionScheme(readSupercompressionScheme(bytes));
         } else {
             // Create info.
             this._numLevels = (data as IKtxTextureCreateInfo).numLevels ?? 0;
@@ -108,8 +109,13 @@ export class Ktx2Texture implements IKtx2Texture {
     }
 
     /** @inheritDoc */
-    public get supercompressionScheme(): KtxSuperCompressionScheme {
+    public get supercompressionScheme(): KtxSupercompressionScheme {
         return this._supercompressionScheme;
+    }
+
+    /** @inheritDoc */
+    public get oetf(): KtxDFTransfer {
+        return Mapper.mapTransferFunction(this._ktxTexture.oetf);
     }
 
     /** @inheritDoc */
@@ -121,7 +127,7 @@ export class Ktx2Texture implements IKtx2Texture {
         const mode = Mapper.mapAstcEncoderMode(
             this._ktxLib, astcParams.mode ?? KtxAstcEncoderMode.DEFAULT);
         const qualityLevel = Mapper.mapAstcQuality(
-            this._ktxLib, astcParams.qualityLevel ?? AstcQualityLevel.MEDIUM);
+            this._ktxLib, astcParams.qualityLevel ?? KtxAstcQualityLevel.MEDIUM);
         const inputSwizzle = astcParams.inputSwizzle !== undefined
             ? Mapper.mapInputSwizzle(astcParams.inputSwizzle)
             : undefined;
@@ -215,8 +221,8 @@ export class Ktx2Texture implements IKtx2Texture {
             if (errorCode === KtxErrorCode.SUCCESS) {
                 // ETC1S is stored BasisLZ-supercompressed; UASTC is not.
                 this._supercompressionScheme = basisParams.uastc === true
-                    ? KtxSuperCompressionScheme.NONE
-                    : KtxSuperCompressionScheme.BASIS_LZ;
+                    ? KtxSupercompressionScheme.NONE
+                    : KtxSupercompressionScheme.BASIS_LZ;
             }
             return errorCode;
         } finally {
@@ -282,7 +288,7 @@ export class Ktx2Texture implements IKtx2Texture {
     public deflateZlib(compressionLevel: number): KtxErrorCode {
         const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.deflateZLIB(compressionLevel));
         if (errorCode === KtxErrorCode.SUCCESS) {
-            this._supercompressionScheme = KtxSuperCompressionScheme.ZLIB;
+            this._supercompressionScheme = KtxSupercompressionScheme.ZLIB;
         }
         return errorCode;
     }
@@ -291,13 +297,13 @@ export class Ktx2Texture implements IKtx2Texture {
     public deflateZstd(compressionLevel: number): KtxErrorCode {
         const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.deflateZstd(compressionLevel));
         if (errorCode === KtxErrorCode.SUCCESS) {
-            this._supercompressionScheme = KtxSuperCompressionScheme.ZSTD;
+            this._supercompressionScheme = KtxSupercompressionScheme.ZSTD;
         }
         return errorCode;
     }
 
     /** @inheritDoc */
-    public glUpload(): UploadResult {
+    public glUpload(): IKtxUploadResult {
         if (!this._ktxLib.GL?.currentContext) {
             throw new Error("glUpload: no WebGL context. Pass preinitializedWebGLContext to Ktx2Factory.initializeAsync first.");
         }

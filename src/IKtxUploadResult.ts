@@ -4,7 +4,7 @@
  * Contains the upload status and, when successful, the created WebGL texture
  * and its associated texture target.
  */
-export interface UploadResult {
+export interface IKtxUploadResult {
 
     /**
      * WebGL error code of the upload. `0` (`gl.NO_ERROR`) means success.

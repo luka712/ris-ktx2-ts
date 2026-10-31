@@ -4,7 +4,7 @@
  * Higher quality levels generally produce better compression quality
  * at the cost of increased encoding time.
  */
-export enum AstcQualityLevel {
+export enum KtxAstcQualityLevel {
     /** Fastest encoding with the lowest compression effort. */
     FASTEST = "FASTEST",
     /** Fast encoding with low compression effort. */

@@ -390,7 +390,7 @@ export class TextureFormatInfo {
      *
      * @returns The PVRTC2 4bpp RGBA {@link TextureFormatInfo}.
      */
-    public static pvrtc2_4_rgba(): TextureFormatInfo {
+    public static pvrtc2Rgba4bpp(): TextureFormatInfo {
         return new TextureFormatInfo(4, 4, 1, 8);
     }
 
@@ -399,7 +399,7 @@ export class TextureFormatInfo {
      *
      * @returns The PVRTC1 4bpp RGBA {@link TextureFormatInfo}.
      */
-    public static pvrtc1_4_rgba(): TextureFormatInfo {
+    public static pvrtc1Rgba4bpp(): TextureFormatInfo {
         return new TextureFormatInfo(4, 4, 1, 8);
     }
 

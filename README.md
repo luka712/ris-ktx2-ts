@@ -92,10 +92,10 @@ texture.delete();
 ### Encode ASTC
 
 ```ts
-import { AstcQualityLevel, KtxAstcBlockDimension } from "ris-ktx2";
+import { KtxAstcQualityLevel, KtxAstcBlockDimension } from "ris-ktx2";
 
 // Instead of compressBasis. Defaults: 4×4 blocks, MEDIUM quality.
-texture.compressAstc({ blockDimension: KtxAstcBlockDimension.D6x6, qualityLevel: AstcQualityLevel.THOROUGH });
+texture.compressAstc({ blockDimension: KtxAstcBlockDimension.D6x6, qualityLevel: KtxAstcQualityLevel.THOROUGH });
 
 texture.vkFormat; // VkFormat.ASTC_6X6_SRGB_BLOCK, ready to upload without transcoding
 ```
@@ -128,7 +128,7 @@ Everything is imported from `ris-ktx2`:
 * `Ktx2Factory` loads the WebAssembly module and creates or loads textures. It implements `IKtx2Factory`.
 * `IKtx2Texture` is the texture type every factory method returns. Code against this interface. The concrete class is internal.
 * `IKtxBasisParams`, `IKtxAstcParams`, and `IKtxTextureCreateInfo` are the options for `compressBasis`, `compressAstc`, and `create`.
-* `texture.glUpload()` creates a WebGL texture in the context passed to `initializeAsync` and returns an `UploadResult` (`error` is `0` on success).
+* `texture.glUpload()` creates a WebGL texture in the context passed to `initializeAsync` and returns an `IKtxUploadResult` (`error` is `0` on success).
 * `texture.getTextureFormatInfo(texture.vkFormat)` returns a `TextureFormatInfo` with the block size and bytes per block, which you need for WebGL and WebGPU uploads (for example `bytesPerRow`).
 
 Things to know:
