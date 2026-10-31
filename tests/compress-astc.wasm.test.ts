@@ -8,6 +8,7 @@ import {
     Ktx2Factory,
     KtxAstcBlockDimension,
     KtxErrorCode,
+    KtxSuperCompressionScheme,
     VkFormat,
 } from "../src";
 
@@ -96,5 +97,40 @@ describe("compressAstc with the real libktx wasm", () => {
         expect([VkFormat.R8G8B8A8_SRGB, VkFormat.R8G8B8A8_UNORM]).toContain(texture.vkFormat);
         expect(texture.dataSize).toBe(16 * 16 * 4);
         texture.delete();
+    });
+});
+
+describe("supercompressionScheme with the real libktx wasm", () => {
+    const factory = new Ktx2Factory();
+
+    beforeAll(async () => {
+        (Ktx2Factory as unknown as {_ktxLib?: unknown})._ktxLib = await loadLibKtx();
+    });
+
+    function filled() {
+        const texture = factory.create({baseWidth: 16, baseHeight: 16});
+        texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
+        return texture;
+    }
+
+    it("is NONE for a new texture", () => {
+        expect(filled().supercompressionScheme).toBe(KtxSuperCompressionScheme.NONE);
+    });
+
+    it("tracks deflate and basis compression and survives a write/read round trip", () => {
+        const cases: Array<[(t: ReturnType<typeof filled>) => KtxErrorCode, KtxSuperCompressionScheme]> = [
+            [t => t.deflateZstd(5), KtxSuperCompressionScheme.ZSTD],
+            [t => t.deflateZlib(5), KtxSuperCompressionScheme.ZLIB],
+            [t => t.compressBasis({}), KtxSuperCompressionScheme.BASIS_LZ],
+            [t => t.compressBasis({uastc: true}), KtxSuperCompressionScheme.NONE],
+        ];
+        for (const [run, expected] of cases) {
+            const texture = filled();
+            expect(run(texture)).toBe(KtxErrorCode.SUCCESS);
+            expect(texture.supercompressionScheme).toBe(expected);
+            expect(texture.createCopy().supercompressionScheme).toBe(expected);
+            const bytes = texture.writeToMemory();
+            expect(factory.createFromBuffer(bytes).supercompressionScheme).toBe(expected);
+        }
     });
 });

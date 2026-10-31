@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {detectKtxContainer, readNumLevels, toUint8Array} from "../src/KtxContainer";
+import {detectKtxContainer, readNumLevels, readSupercompressionScheme, toUint8Array} from "../src/KtxContainer";
 
 const KTX2_IDENTIFIER = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
 const KTX1_IDENTIFIER = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
@@ -28,5 +28,16 @@ describe("KtxContainer", () => {
 
         const original = new Uint8Array(4);
         expect(toUint8Array(original)).toBe(original);
+    });
+
+    it("reads the KTX2 supercompression scheme and returns 0 for KTX1 or short data", () => {
+        const header = new Uint8Array(48);
+        header.set(KTX2_IDENTIFIER);
+        new DataView(header.buffer).setUint32(44, 2, true);
+        expect(readSupercompressionScheme(header)).toBe(2);
+        expect(readSupercompressionScheme(Uint8Array.from(KTX2_IDENTIFIER))).toBe(0);
+        const ktx1 = new Uint8Array(64);
+        ktx1.set(KTX1_IDENTIFIER);
+        expect(readSupercompressionScheme(ktx1)).toBe(0);
     });
 });

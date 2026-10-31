@@ -5,15 +5,16 @@ import {VkFormat} from "./VkFormat";
 import type {IKtxBasisParams} from "./IKtxBasisParams";
 import {KtxTranscodeFormat} from "./KtxTranscodeFormat";
 import {KtxTranscodeFlags} from "./KtxTranscodeFlags";
-import type {KtxErrorCode} from "./KtxErrorCode";
+import {KtxErrorCode} from "./KtxErrorCode";
 import {KtxUastcFlags} from "./KtxUastcFlags";
 import {TextureFormatInfo} from "./TextureFormatInfo";
-import {detectKtxContainer, readNumLevels, toUint8Array} from "./KtxContainer";
+import {detectKtxContainer, readNumLevels, readSupercompressionScheme, toUint8Array} from "./KtxContainer";
 import type {IKtxAstcParams} from "./IKtxAstcParams";
 import {AstcQualityLevel} from "./AstcQualityLevels";
 import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
 import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
 import type { UploadResult } from "./UploadResult";
+import {KtxSuperCompressionScheme} from "./KtxSuperCompressionScheme";
 
 /**
  * libktx-backed implementation of {@link IKtx2Texture}. Create instances
@@ -29,6 +30,12 @@ export class Ktx2Texture implements IKtx2Texture {
     private readonly _ktxTexture: any;
 
     private _numLevels = 0;
+
+    /**
+     * libktx's Embind texture does not expose the scheme, so it is read from
+     * the file header and updated by the compress and deflate calls.
+     */
+    private _supercompressionScheme = KtxSuperCompressionScheme.NONE;
 
     /** `true` for KTX1 data. libktx has no `vkFormat` for KTX1 textures. */
     private _isKtx1 = false;
@@ -53,11 +60,13 @@ export class Ktx2Texture implements IKtx2Texture {
             // Copy: keep the source's metadata.
             this._numLevels = data._numLevels;
             this._isKtx1 = data._isKtx1;
+            this._supercompressionScheme = data._supercompressionScheme;
         } else if (ArrayBuffer.isView(data)) {
             // File bytes, as any view type: read the header.
             const bytes = toUint8Array(data);
             this._isKtx1 = detectKtxContainer(bytes) === "ktx1";
             this._numLevels = readNumLevels(bytes);
+            this._supercompressionScheme = Mapper.mapSuperCompressionScheme(readSupercompressionScheme(bytes));
         } else {
             // Create info.
             this._numLevels = (data as IKtxTextureCreateInfo).numLevels ?? 0;
@@ -96,6 +105,11 @@ export class Ktx2Texture implements IKtx2Texture {
     /** @inheritdoc */
     public get numLevels() {
         return this._numLevels;
+    }
+
+    /** @inheritDoc */
+    public get supercompressionScheme(): KtxSuperCompressionScheme {
+        return this._supercompressionScheme;
     }
 
     /** @inheritDoc */
@@ -197,8 +211,14 @@ export class Ktx2Texture implements IKtx2Texture {
                 ktxBasisParams.compressionLevel = basisParams.compressionLevel ?? 2;
             }
 
-            const errorCode = this._ktxTexture.compressBasis(ktxBasisParams);
-            return Mapper.mapErrorCodeFromKtxLib(errorCode);
+            const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.compressBasis(ktxBasisParams));
+            if (errorCode === KtxErrorCode.SUCCESS) {
+                // ETC1S is stored BasisLZ-supercompressed; UASTC is not.
+                this._supercompressionScheme = basisParams.uastc === true
+                    ? KtxSuperCompressionScheme.NONE
+                    : KtxSuperCompressionScheme.BASIS_LZ;
+            }
+            return errorCode;
         } finally {
             // basisParams is an Embind object and must be freed explicitly.
             ktxBasisParams.delete?.();
@@ -260,14 +280,20 @@ export class Ktx2Texture implements IKtx2Texture {
 
     /** @inheritDoc */
     public deflateZlib(compressionLevel: number): KtxErrorCode {
-        const errorCode = this._ktxTexture.deflateZLIB(compressionLevel);
-        return Mapper.mapErrorCodeFromKtxLib(errorCode);
+        const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.deflateZLIB(compressionLevel));
+        if (errorCode === KtxErrorCode.SUCCESS) {
+            this._supercompressionScheme = KtxSuperCompressionScheme.ZLIB;
+        }
+        return errorCode;
     }
 
     /** @inheritDoc */
     public deflateZstd(compressionLevel: number): KtxErrorCode {
-        const errorCode = this._ktxTexture.deflateZstd(compressionLevel);
-        return Mapper.mapErrorCodeFromKtxLib(errorCode);
+        const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.deflateZstd(compressionLevel));
+        if (errorCode === KtxErrorCode.SUCCESS) {
+            this._supercompressionScheme = KtxSuperCompressionScheme.ZSTD;
+        }
+        return errorCode;
     }
 
     /** @inheritDoc */

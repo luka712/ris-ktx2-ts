@@ -7,7 +7,7 @@
 - `KtxTranscodeFormat.KTX_TTF_PVRTC1_4_RGBA` and `KTX_TTF_PVRTC2_4_RGBA` are renamed to `PVRTC1_4_RGBA` and `PVRTC2_4_RGBA`. The numeric values are unchanged.
 - `createKtxModuleAsync` is no longer exported. Use `Ktx2Factory.initializeAsync`.
 - `IKtx2Texture.compressAstc(quality: number)` is now `compressAstc(astcParams?: IKtxAstcParams)`.
-- `IKtx2Texture` has new methods (`decodeAstc`, `glUpload`), and `IKtx2Factory.initializeAsync` takes an optional `params` argument. Code that implements these interfaces itself must add them.
+- `IKtx2Texture` has new methods (`decodeAstc`, `glUpload`, `supercompressionScheme`), and `IKtx2Factory.initializeAsync` takes an optional `params` argument. Code that implements these interfaces itself must add them.
 
 ### Added
 
@@ -15,6 +15,7 @@
 - `decodeAstc()` decodes ASTC data back to RGBA8.
 - `glUpload()` creates a WebGL texture from the texture's data and returns an `UploadResult` with `error` (`0` on success), `object` (the `WebGLTexture`, unset on failure), and `target`. It throws when no WebGL context was set with `initializeAsync`, and while `needsTranscoding` is `true`.
 - `initializeAsync({ preinitializedWebGLContext })` sets the WebGL or WebGL2 context that `glUpload` uses. It is applied on every call, so a later call can switch contexts.
+- `supercompressionScheme` reports the texture's KTX2 supercompression as a `KtxSuperCompressionScheme` (`NONE`, `BASIS_LZ`, `ZSTD`, or `ZLIB`). It is read from the file header and updated after `compressBasis`, `deflateZstd`, and `deflateZlib`.
 - `TextureFormatInfo` layouts for every ASTC block size (2D and 3D) and for PVRTC1 and PVRTC2 4bpp. `fromVkFormat` and `getTextureFormatInfo` now size every 2D ASTC `VkFormat` (UNORM, SRGB, and SFLOAT), not only 4×4.
 - The browser example draws a second image encoded with `compressAstc` and uploads both textures with `glUpload`. Without GPU ASTC support it shows the ASTC result decoded to RGBA.
 

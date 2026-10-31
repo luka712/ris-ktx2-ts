@@ -9,6 +9,7 @@ import type {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
 import type {AstcQualityLevel} from "./AstcQualityLevels";
 import type {IKtx2Factory} from "./IKtx2Factory";
 import type {UploadResult} from "./UploadResult";
+import type {KtxSuperCompressionScheme} from "./KtxSuperCompressionScheme";
 
 /**
  * A KTX2 texture backed by a native libktx texture.
@@ -95,6 +96,26 @@ export interface IKtx2Texture {
      * {@link VkFormat.UNDEFINED}.
      */
     readonly vkFormat: VkFormat;
+
+    /**
+     * Supercompression scheme applied to the texture's image data.
+     *
+     * Reports the scheme currently stored in the native KTX texture:
+     * - {@link KtxSuperCompressionScheme.NONE}: No supercompression.
+     * - {@link KtxSuperCompressionScheme.BASIS_LZ}: Basis Universal LZ supercompression
+     *   used with ETC1S data.
+     * - {@link KtxSuperCompressionScheme.ZSTD}: Zstandard lossless supercompression.
+     * - {@link KtxSuperCompressionScheme.ZLIB}: Zlib lossless supercompression.
+     *
+     * The value reflects changes made by {@link IKtx2Texture.compressBasis},
+     * {@link IKtx2Texture.deflateZstd}, and {@link IKtx2Texture.deflateZlib}.
+     *
+     * @remarks
+     * This property describes the KTX container's supercompression scheme,
+     * not the GPU texture format. For example, a BC7 texture can use
+     * {@link KtxSuperCompressionScheme.ZSTD} supercompression.
+     */
+    readonly supercompressionScheme: KtxSuperCompressionScheme;
 
     /**
      * Transcodes Basis Universal data to a GPU block format or to RGBA32.

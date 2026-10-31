@@ -6,6 +6,7 @@ import {KtxUastcFlags} from "./KtxUastcFlags";
 import {AstcQualityLevel} from "./AstcQualityLevels";
 import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
 import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
+import {KtxSuperCompressionScheme} from "./KtxSuperCompressionScheme";
 
 /** Every {@link KtxTranscodeFlags} bit that libktx defines. */
 const KNOWN_TRANSCODE_FLAGS =
@@ -160,5 +161,26 @@ export class Mapper {
             throw new Error(`Unsupported ${field}: ${String(value)}`);
         }
         return member;
+    }
+
+    /**
+     * Maps the raw KTX2 `supercompressionScheme` header value
+     * (0 none, 1 BasisLZ, 2 Zstandard, 3 ZLIB) to {@link KtxSuperCompressionScheme}.
+     * @param value - The raw header value.
+     * @throws If the value is not a known scheme.
+     */
+    public static mapSuperCompressionScheme(value: number): KtxSuperCompressionScheme {
+        switch (value) {
+            case 0:
+                return KtxSuperCompressionScheme.NONE;
+            case 1:
+                return KtxSuperCompressionScheme.BASIS_LZ;
+            case 2:
+                return KtxSuperCompressionScheme.ZSTD;
+            case 3:
+                return KtxSuperCompressionScheme.ZLIB;
+            default:
+                throw new Error(`Unsupported supercompression scheme: ${value}`);
+        }
     }
 }

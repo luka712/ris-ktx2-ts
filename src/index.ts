@@ -10,6 +10,7 @@ export * from "./KtxAstcBlockDimension";
 export * from "./KtxAstcEncoderMode";
 export * from "./KtxCreateStorage";
 export * from "./KtxErrorCode";
+export * from "./KtxSuperCompressionScheme";
 export * from "./KtxTranscodeFlags";
 export * from "./KtxTranscodeFormat";
 export * from "./KtxUastcFlags";
