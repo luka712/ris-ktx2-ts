@@ -142,6 +142,7 @@ Things to know:
 ## Known issues
 
 * The WebAssembly binary is inlined as a `data:` URL and the libktx glue code is evaluated with `new Function`. If your page sets a Content Security Policy, it must allow `'unsafe-eval'` in `script-src` and `data:` in `connect-src`, or `initializeAsync` fails.
+* `compressAstc` supports only 2D block dimensions (`D4x4` to `D12x12`). The 3D dimensions in `KtxAstcBlockDimension` are not supported yet.
 
 ## KTX2
 

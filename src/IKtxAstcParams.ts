@@ -17,6 +17,8 @@ export interface IKtxAstcParams {
      * Smaller blocks generally provide better image quality at the cost
      * of a larger compressed texture size.
      *
+     * Use a 2D dimension. The 3D dimensions are not supported yet.
+     *
      * @defaultValue {@link KtxAstcBlockDimension.D4x4}
      */
     blockDimension?: KtxAstcBlockDimension;

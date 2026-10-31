@@ -12,7 +12,7 @@
 
 ### Added
 
-- `compressAstc(params?)` encodes uncompressed RGBA8 textures as ASTC. `IKtxAstcParams` has `blockDimension` (`KtxAstcBlockDimension`, default 4×4), `mode` (`KtxAstcEncoderMode`, default `DEFAULT`), `qualityLevel` (`KtxAstcQualityLevel`, default `MEDIUM`), `normalMap`, `inputSwizzle`, `threadCount`, and `verbose`. Afterward `vkFormat` is the matching `ASTC_*_BLOCK` format and `dataSize` the compressed size.
+- `compressAstc(params?)` encodes uncompressed RGBA8 textures as ASTC. `IKtxAstcParams` has `blockDimension` (`KtxAstcBlockDimension`, default 4×4; only 2D block dimensions are supported for now), `mode` (`KtxAstcEncoderMode`, default `DEFAULT`), `qualityLevel` (`KtxAstcQualityLevel`, default `MEDIUM`), `normalMap`, `inputSwizzle`, `threadCount`, and `verbose`. Afterward `vkFormat` is the matching `ASTC_*_BLOCK` format and `dataSize` the compressed size.
 - `decodeAstc()` decodes ASTC data back to RGBA8.
 - `glUpload()` creates a WebGL texture from the texture's data and returns an `IKtxUploadResult` with `error` (`0` on success), `object` (the `WebGLTexture`, unset on failure), and `target`. It throws when no WebGL context was set with `initializeAsync`, and while `needsTranscoding` is `true`.
 - `initializeAsync({ preinitializedWebGLContext })` sets the WebGL or WebGL2 context that `glUpload` uses. It is applied on every call, so a later call can switch contexts.
