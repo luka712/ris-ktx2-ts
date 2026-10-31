@@ -5,10 +5,11 @@ Browser TypeScript library for loading, creating, encoding, and transcoding KTX2
 ## Features
 
 * Load `.ktx2` files from a URL, a `File`, or bytes in memory
-* Encode Basis Universal (ETC1S and UASTC) or ASTC
+* Create 2D RGBA8 textures
+* Encode to Basis Universal (ETC1S and UASTC) or ASTC
 * Transcode Basis Universal to BC7, BC3, ETC2 RGBA, ASTC 4×4, or RGBA32
-* Read image data and write KTX2 files to memory
-* zlib and Zstandard supercompression
+* Upload textures to WebGL
+* Write KTX2 files to memory, with optional zlib or Zstandard supercompression
 
 ## Install
 
@@ -20,13 +21,16 @@ npm install ris-ktx2
 
 ### Initialize
 
-Create a `Ktx2Factory` and wait for `initializeAsync` before calling anything else. It loads the WebAssembly module once per page or worker.
+Create a `Ktx2Factory` and wait for `initializeAsync` before calling anything else. It loads the WebAssembly module once per page.
 
 ```ts
 import { Ktx2Factory } from "ris-ktx2";
 
 const factory = new Ktx2Factory();
-await factory.initializeAsync();
+
+// Pass your WebGL context if you plan to call glUpload. Otherwise call initializeAsync() with no arguments.
+const gl = canvas.getContext("webgl2")!;
+await factory.initializeAsync({ preinitializedWebGLContext: gl });
 ```
 
 The examples below use this `factory`.
@@ -102,10 +106,9 @@ texture.vkFormat; // VkFormat.ASTC_6X6_SRGB_BLOCK, ready to upload without trans
 
 ### Upload to WebGL
 
-```ts
-const gl = canvas.getContext("webgl2")!;
-await factory.initializeAsync({ preinitializedWebGLContext: gl });
+Requires the factory to be initialized with `preinitializedWebGLContext` (see [Initialize](#initialize)).
 
+```ts
 // After transcodeBasis or compressAstc. The GPU must support the format.
 const result = texture.glUpload();
 if (result.error !== 0) throw new Error(`glUpload failed: ${result.error}`);
@@ -128,6 +131,7 @@ Everything is imported from `ris-ktx2`:
 * `Ktx2Factory` loads the WebAssembly module and creates or loads textures. It implements `IKtx2Factory`.
 * `IKtx2Texture` is the texture type every factory method returns. Code against this interface. The concrete class is internal.
 * `IKtxBasisParams`, `IKtxAstcParams`, and `IKtxTextureCreateInfo` are the options for `compressBasis`, `compressAstc`, and `create`.
+* `VkFormat`, `KtxTranscodeFormat`, `KtxTranscodeFlags`, `KtxErrorCode`, `KtxCreateStorage`, `KtxUastcFlags`, `KtxAstcBlockDimension`, `KtxAstcQualityLevel`, and `KtxAstcEncoderMode` are the enumerations you pass to these methods.
 * `texture.glUpload()` creates a WebGL texture in the context passed to `initializeAsync` and returns an `IKtxUploadResult` (`error` is `0` on success).
 * `texture.getTextureFormatInfo(texture.vkFormat)` returns a `TextureFormatInfo` with the block size and bytes per block, which you need for WebGL and WebGPU uploads (for example `bytesPerRow`).
 
@@ -163,8 +167,9 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for branches, versioning, and releases.
 ## Planned
 
 * BC7 compression
-* WebGL texture creation
 * WebGPU texture creation
+* HDR textures
+* 3D ASTC block sizes
 
 ## License
 
