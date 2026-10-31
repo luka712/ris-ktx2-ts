@@ -9,6 +9,24 @@ import {Ktx2Texture} from "./Ktx2Texture";
 import {detectKtxContainer, toUint8Array} from "./KtxContainer";
 
 /**
+ * Parameters used to initialize the KTX2 factory.
+ */
+export interface IKtx2FactoryInitializeParams {
+
+    /**
+     * An existing WebGL context to use for texture operations.
+     *
+     * Can be either a WebGL 2.0 or WebGL 1.0 rendering context.
+     * When provided, the factory reuses this context instead of creating
+     * a new one.
+     *
+     * When omitted or `null`, the factory may initialize its own
+     * WebGL context, depending on the implementation.
+     */
+    preinitializedWebGLContext?: WebGL2RenderingContext | WebGLRenderingContext | null;
+}
+
+/**
  * Loads and creates KTX2 textures. This is the main entry point of the package.
  *
  * Call {@link Ktx2Factory.initializeAsync} and wait for it before any other
@@ -43,11 +61,8 @@ export class Ktx2Factory implements IKtx2Factory {
     private static _ktxLibPromise?: Promise<void>;
 
     /** @inheritDoc */
-    public async initializeAsync(): Promise<void> {
-        if (Ktx2Factory._ktxLib) {
-            return;
-        }
-        if (!Ktx2Factory._ktxLibPromise) {
+    public async initializeAsync(params?: IKtx2FactoryInitializeParams): Promise<void> {
+        if (!Ktx2Factory._ktxLib && !Ktx2Factory._ktxLibPromise) {
             Ktx2Factory._ktxLibPromise = createKtxModuleAsync().then(
                 (ktxLib) => {
                     Ktx2Factory._ktxLib = ktxLib;
@@ -60,6 +75,17 @@ export class Ktx2Factory implements IKtx2Factory {
             );
         }
         await Ktx2Factory._ktxLibPromise;
+
+        const gl = params?.preinitializedWebGLContext;
+        if (gl) {
+            // Emscripten's GL.makeContextCurrent takes a context handle, not
+            // the WebGL context, so register the context first.
+            const GL = Ktx2Factory._ktxLib.GL;
+            const handle = GL.registerContext(gl, {
+                majorVersion: typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext ? 2 : 1,
+            });
+            GL.makeContextCurrent(handle);
+        }
     }
 
     /** @inheritDoc */

@@ -3,6 +3,9 @@ import {KtxErrorCode} from "./KtxErrorCode";
 import {KtxCreateStorage} from "./KtxCreateStorage";
 import {KtxTranscodeFlags} from "./KtxTranscodeFlags";
 import {KtxUastcFlags} from "./KtxUastcFlags";
+import {AstcQualityLevel} from "./AstcQualityLevels";
+import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
+import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
 
 /** Every {@link KtxTranscodeFlags} bit that libktx defines. */
 const KNOWN_TRANSCODE_FLAGS =
@@ -10,7 +13,7 @@ const KNOWN_TRANSCODE_FLAGS =
     KtxTranscodeFlags.TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS |
     KtxTranscodeFlags.HIGH_QUALITY;
 
-/** Characters allowed in a Basis input swizzle. */
+/** Characters allowed in a Basis or ASTC input swizzle. */
 const SWIZZLE_CHANNELS = new Set(["r", "g", "b", "a", "0", "1"]);
 
 /**
@@ -116,5 +119,46 @@ export class Mapper {
             );
         }
         return swizzle.join("");
+    }
+
+    /**
+     * Maps an {@link AstcQualityLevel} to the libktx
+     * `pack_astc_quality_levels` Embind enum member of the same name.
+     * Throws for unknown values.
+     */
+    public static mapAstcQuality(ktxLib: any, quality: AstcQualityLevel): any {
+        return Mapper.mapEmbindEnumByName(ktxLib.pack_astc_quality_levels, AstcQualityLevel, quality, "qualityLevel");
+    }
+
+    /**
+     * Maps a {@link KtxAstcBlockDimension} to the libktx
+     * `pack_astc_block_dimension` Embind enum member of the same name.
+     * Throws for unknown values.
+     */
+    public static mapAstcBlockDimension(ktxLib: any, dimension: KtxAstcBlockDimension): any {
+        return Mapper.mapEmbindEnumByName(ktxLib.pack_astc_block_dimension, KtxAstcBlockDimension, dimension, "blockDimension");
+    }
+
+    /**
+     * Maps a {@link KtxAstcEncoderMode} to the libktx
+     * `pack_astc_encoder_mode` Embind enum member of the same name.
+     * Throws for unknown values.
+     */
+    public static mapAstcEncoderMode(ktxLib: any, mode: KtxAstcEncoderMode): any {
+        return Mapper.mapEmbindEnumByName(ktxLib.pack_astc_encoder_mode, KtxAstcEncoderMode, mode, "mode");
+    }
+
+    /**
+     * Looks up the Embind enum member whose name matches the TS enum key.
+     * Embind enum fields silently read a plain number as `0`, so the member
+     * object must be passed.
+     */
+    private static mapEmbindEnumByName(members: any, tsEnum: Record<string, string | number>, value: string | number, field: string): any {
+        const key = typeof value === "number" ? tsEnum[value] : (Object.values(tsEnum).includes(value) ? value : undefined);
+        const member = typeof key === "string" && members ? members[key] : undefined;
+        if (member === undefined) {
+            throw new Error(`Unsupported ${field}: ${String(value)}`);
+        }
+        return member;
     }
 }
