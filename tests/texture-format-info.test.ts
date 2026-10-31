@@ -102,6 +102,18 @@ describe("TextureFormatInfo", () => {
         expect(TextureFormatInfo.fromVkFormat(VkFormat.ETC2_R8G8B8A8_SRGB_BLOCK)).toEqual(TextureFormatInfo.etc2rgba());
     });
 
+    it("sizes every 2D ASTC format with its block size", () => {
+        const sizes = [[4, 4], [5, 4], [5, 5], [6, 5], [6, 6], [8, 5], [8, 6],
+            [8, 8], [10, 5], [10, 6], [10, 8], [10, 10], [12, 10], [12, 12]];
+        sizes.forEach(([w, h], i) => {
+            for (const format of [VkFormat.ASTC_4X4_UNORM_BLOCK + 2 * i, VkFormat.ASTC_4X4_SRGB_BLOCK + 2 * i, VkFormat.ASTC_4X4_SFLOAT_BLOCK + i]) {
+                const info = TextureFormatInfo.fromVkFormat(format);
+                expect([info.blockWidth, info.blockHeight, info.blockDepth, info.bytesPerBlock]).toEqual([w, h, 1, 16]);
+            }
+        });
+        expect(VkFormat[VkFormat.ASTC_4X4_UNORM_BLOCK + 26]).toBe("ASTC_12X12_UNORM_BLOCK");
+    });
+
     it("throws for a Vulkan format with no layout", () => {
         expect(() => TextureFormatInfo.fromVkFormat(VkFormat.R8_UNORM)).toThrow(/no layout/);
         expect(() => TextureFormatInfo.fromVkFormat(VkFormat.BC1_RGB_UNORM_BLOCK)).toThrow(/no layout/);

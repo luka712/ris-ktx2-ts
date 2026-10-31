@@ -177,6 +177,233 @@ export class TextureFormatInfo {
     }
 
     /**
+     * ASTC 5×4 RGBA layout: 5×4 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 5×4 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc5x4rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(5, 4, 1, 16);
+    }
+
+    /**
+     * ASTC 5×5 RGBA layout: 5×5 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 5×5 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc5x5rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(5, 5, 1, 16);
+    }
+
+    /**
+     * ASTC 6×5 RGBA layout: 6×5 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 6×5 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc6x5rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(6, 5, 1, 16);
+    }
+
+    /**
+     * ASTC 6×6 RGBA layout: 6×6 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 6×6 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc6x6rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(6, 6, 1, 16);
+    }
+
+    /**
+     * ASTC 8×5 RGBA layout: 8×5 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 8×5 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc8x5rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(8, 5, 1, 16);
+    }
+
+    /**
+     * ASTC 8×6 RGBA layout: 8×6 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 8×6 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc8x6rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(8, 6, 1, 16);
+    }
+
+    /**
+     * ASTC 10×5 RGBA layout: 10×5 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 10×5 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc10x5rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(10, 5, 1, 16);
+    }
+
+    /**
+     * ASTC 10×6 RGBA layout: 10×6 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 10×6 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc10x6rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(10, 6, 1, 16);
+    }
+
+    /**
+     * ASTC 8×8 RGBA layout: 8×8 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 8×8 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc8x8rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(8, 8, 1, 16);
+    }
+
+    /**
+     * ASTC 10×8 RGBA layout: 10×8 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 10×8 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc10x8rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(10, 8, 1, 16);
+    }
+
+    /**
+     * ASTC 10×10 RGBA layout: 10×10 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 10×10 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc10x10rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(10, 10, 1, 16);
+    }
+
+    /**
+     * ASTC 12×10 RGBA layout: 12×10 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 12×10 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc12x10rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(12, 10, 1, 16);
+    }
+
+    /**
+     * ASTC 12×12 RGBA layout: 12×12 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 12×12 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc12x12rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(12, 12, 1, 16);
+    }
+
+// 3D ASTC formats
+
+    /**
+     * ASTC 3×3×3 RGBA layout: 3×3×3 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 3×3×3 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc3x3x3rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(3, 3, 3, 16);
+    }
+
+    /**
+     * ASTC 4×3×3 RGBA layout: 4×3×3 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 4×3×3 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc4x3x3rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(4, 3, 3, 16);
+    }
+
+    /**
+     * ASTC 4×4×3 RGBA layout: 4×4×3 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 4×4×3 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc4x4x3rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(4, 4, 3, 16);
+    }
+
+    /**
+     * ASTC 4×4×4 RGBA layout: 4×4×4 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 4×4×4 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc4x4x4rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(4, 4, 4, 16);
+    }
+
+    /**
+     * ASTC 5×4×4 RGBA layout: 5×4×4 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 5×4×4 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc5x4x4rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(5, 4, 4, 16);
+    }
+
+    /**
+     * ASTC 5×5×4 RGBA layout: 5×5×4 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 5×5×4 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc5x5x4rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(5, 5, 4, 16);
+    }
+
+    /**
+     * ASTC 5×5×5 RGBA layout: 5×5×5 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 5×5×5 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc5x5x5rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(5, 5, 5, 16);
+    }
+
+    /**
+     * ASTC 6×5×5 RGBA layout: 6×5×5 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 6×5×5 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc6x5x5rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(6, 5, 5, 16);
+    }
+
+    /**
+     * ASTC 6×6×5 RGBA layout: 6×6×5 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 6×6×5 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc6x6x5rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(6, 6, 5, 16);
+    }
+
+    /**
+     * ASTC 6×6×6 RGBA layout: 6×6×6 blocks, 16 bytes per block.
+     *
+     * @returns The ASTC 6×6×6 RGBA {@link TextureFormatInfo}.
+     */
+    public static astc6x6x6rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(6, 6, 6, 16);
+    }
+
+    /**
+     * PVRTC2 4bpp RGBA layout: 4×4 blocks, 8 bytes per block.
+     *
+     * @returns The PVRTC2 4bpp RGBA {@link TextureFormatInfo}.
+     */
+    public static pvrtc2_4_rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(4, 4, 1, 8);
+    }
+
+    /**
+     * PVRTC1 4bpp RGBA layout: 4×4 blocks, 8 bytes per block.
+     *
+     * @returns The PVRTC1 4bpp RGBA {@link TextureFormatInfo}.
+     */
+    public static pvrtc1_4_rgba(): TextureFormatInfo {
+        return new TextureFormatInfo(4, 4, 1, 8);
+    }
+
+    /**
      * Uncompressed 8-bit 4-channel layout: 1×1 blocks, 4 bytes per pixel.
      *
      * Channel order does not change the size. `B8G8R8A8_*` and
@@ -219,9 +446,9 @@ export class TextureFormatInfo {
      * - `BC3_UNORM_BLOCK` and `BC3_SRGB_BLOCK` use {@link TextureFormatInfo.bc3}.
      * - `BC7_UNORM_BLOCK` and `BC7_SRGB_BLOCK` use {@link TextureFormatInfo.bc7}.
      * - `ETC2_R8G8B8A8_UNORM_BLOCK` and `ETC2_R8G8B8A8_SRGB_BLOCK` use {@link TextureFormatInfo.etc2rgba}.
-     * - `ASTC_4X4_UNORM_BLOCK`, `ASTC_4X4_SRGB_BLOCK`, and `ASTC_4X4_SFLOAT_BLOCK`
-     *   use {@link TextureFormatInfo.astc4x4rgba}. `ASTC_4X4_SFLOAT_BLOCK_EXT`
-     *   is the same value as `ASTC_4X4_SFLOAT_BLOCK`.
+     * - Every 2D `ASTC_*_UNORM_BLOCK`, `ASTC_*_SRGB_BLOCK`, and
+     *   `ASTC_*_SFLOAT_BLOCK` format uses the layout with its block
+     *   size, for example {@link TextureFormatInfo.astc6x6rgba} for `ASTC_6X6_SRGB_BLOCK`.
      *
      * @param vkFormat - Vulkan format.
      * @returns The matching layout.
@@ -255,10 +482,6 @@ export class TextureFormatInfo {
                 return this.depth24Stencil8();
             case VkFormat.D32_SFLOAT:
                 return this.depth32float();
-            case VkFormat.ASTC_4X4_UNORM_BLOCK:
-            case VkFormat.ASTC_4X4_SRGB_BLOCK:
-            case VkFormat.ASTC_4X4_SFLOAT_BLOCK:
-                return this.astc4x4rgba();
             case VkFormat.BC7_UNORM_BLOCK:
             case VkFormat.BC7_SRGB_BLOCK:
                 return this.bc7();
@@ -268,8 +491,33 @@ export class TextureFormatInfo {
             case VkFormat.ETC2_R8G8B8A8_UNORM_BLOCK:
             case VkFormat.ETC2_R8G8B8A8_SRGB_BLOCK:
                 return this.etc2rgba();
-            default:
+            default: {
+                const astc = astcLayout(vkFormat);
+                if (astc) {
+                    return astc();
+                }
                 throw new Error(`TextureFormatInfo.fromVkFormat has no layout for VkFormat ${vkFormat}.`);
+            }
         }
     }
+}
+
+/** 2D ASTC layouts, in `VkFormat` order (4×4 first, 12×12 last). */
+const ASTC_LAYOUTS: ReadonlyArray<() => TextureFormatInfo> = [
+    TextureFormatInfo.astc4x4rgba, TextureFormatInfo.astc5x4rgba, TextureFormatInfo.astc5x5rgba,
+    TextureFormatInfo.astc6x5rgba, TextureFormatInfo.astc6x6rgba, TextureFormatInfo.astc8x5rgba,
+    TextureFormatInfo.astc8x6rgba, TextureFormatInfo.astc8x8rgba, TextureFormatInfo.astc10x5rgba,
+    TextureFormatInfo.astc10x6rgba, TextureFormatInfo.astc10x8rgba, TextureFormatInfo.astc10x10rgba,
+    TextureFormatInfo.astc12x10rgba, TextureFormatInfo.astc12x12rgba,
+];
+
+/** Layout factory for a 2D ASTC `VkFormat`, or `undefined` for other formats. */
+function astcLayout(vkFormat: VkFormat): (() => TextureFormatInfo) | undefined {
+    if (vkFormat >= VkFormat.ASTC_4X4_UNORM_BLOCK && vkFormat <= VkFormat.ASTC_12X12_SRGB_BLOCK) {
+        return ASTC_LAYOUTS[(vkFormat - VkFormat.ASTC_4X4_UNORM_BLOCK) >> 1];
+    }
+    if (vkFormat >= VkFormat.ASTC_4X4_SFLOAT_BLOCK && vkFormat <= VkFormat.ASTC_12X12_SFLOAT_BLOCK) {
+        return ASTC_LAYOUTS[vkFormat - VkFormat.ASTC_4X4_SFLOAT_BLOCK];
+    }
+    return undefined;
 }

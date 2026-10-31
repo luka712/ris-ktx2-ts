@@ -1,6 +1,7 @@
 import {KtxCreateStorage} from "./KtxCreateStorage";
 import type {IKtx2Texture} from "./IKtx2Texture";
 import type {IKtxTextureCreateInfo} from "./IKtxTextureCreateInfo";
+import type {IKtx2FactoryInitializeParams} from "./Ktx2Factory";
 
 /**
  * Loads and creates KTX2 textures.
@@ -23,9 +24,13 @@ export interface IKtx2Factory {
      * load fails, the promise rejects and the next call tries again. The main
      * thread and each worker load their own copy.
      *
+     * @param params - Optional settings. Pass
+     * {@link IKtx2FactoryInitializeParams.preinitializedWebGLContext} to make
+     * that context current for {@link IKtx2Texture.glUpload}. It is applied
+     * on every call, so a later call can switch contexts.
      * @returns A promise that resolves when the module is ready.
      */
-    initializeAsync(): Promise<void>;
+    initializeAsync(params?: IKtx2FactoryInitializeParams): Promise<void>;
 
     /**
      * Loads a KTX2 file from a URL or a `File`.

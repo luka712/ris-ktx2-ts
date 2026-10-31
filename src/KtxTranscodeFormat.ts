@@ -64,12 +64,12 @@ export enum KtxTranscodeFormat {
      * PVRTC1 4bpp RGBA. Useful for simple opacity maps.
      * If the texture has no alpha channel, PVRTC1 4bpp RGB is used instead.
      */
-    KTX_TTF_PVRTC1_4_RGBA = 9,
+    PVRTC1_4_RGBA = 9,
 
     /**
      * ASTC 4×4 RGBA. 4×4 blocks, 16 bytes per block.
      * Common on mobile GPUs, including Apple devices. This is a transcode
-     * target only. Encoding ASTC directly is not supported.
+     * target only. To encode ASTC with other block sizes, use `compressAstc`.
      */
     ASTC_4X4_RGBA = 10,
 
@@ -94,7 +94,7 @@ export enum KtxTranscodeFormat {
     KTX_TTF_PVRTC2_4_RGB = 18,
 
     /** PVRTC2 4bpp RGBA. Premultiplied alpha is recommended. */
-    KTX_TTF_PVRTC2_4_RGBA = 19,
+    PVRTC2_4_RGBA = 19,
 
     /**
      * Unsigned ETC2 EAC R11. The red channel is the opaque or alpha green

@@ -9,6 +9,11 @@ import type {KtxErrorCode} from "./KtxErrorCode";
 import {KtxUastcFlags} from "./KtxUastcFlags";
 import {TextureFormatInfo} from "./TextureFormatInfo";
 import {detectKtxContainer, readNumLevels, toUint8Array} from "./KtxContainer";
+import type {IKtxAstcParams} from "./IKtxAstcParams";
+import {AstcQualityLevel} from "./AstcQualityLevels";
+import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
+import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
+import type { UploadResult } from "./UploadResult";
 
 /**
  * libktx-backed implementation of {@link IKtx2Texture}. Create instances
@@ -94,8 +99,52 @@ export class Ktx2Texture implements IKtx2Texture {
     }
 
     /** @inheritDoc */
-    public compressAstc(_quality: number): KtxErrorCode {
-        throw new Error("Method not implemented.");
+    public compressAstc(astcParams: IKtxAstcParams = {}): KtxErrorCode {
+        // Validate and map before allocating the Embind object, so a throw
+        // does not leak it.
+        const blockDimension = Mapper.mapAstcBlockDimension(
+            this._ktxLib, astcParams.blockDimension ?? KtxAstcBlockDimension.D4x4);
+        const mode = Mapper.mapAstcEncoderMode(
+            this._ktxLib, astcParams.mode ?? KtxAstcEncoderMode.DEFAULT);
+        const qualityLevel = Mapper.mapAstcQuality(
+            this._ktxLib, astcParams.qualityLevel ?? AstcQualityLevel.MEDIUM);
+        const inputSwizzle = astcParams.inputSwizzle !== undefined
+            ? Mapper.mapInputSwizzle(astcParams.inputSwizzle)
+            : undefined;
+
+        const ktxAstcParams = new this._ktxLib.astcParams();
+        try {
+            ktxAstcParams.verbose = astcParams.verbose === true;
+
+            // libktx defaults to one thread; only pass larger values.
+            if (astcParams.threadCount && astcParams.threadCount > 1) {
+                ktxAstcParams.threadCount = astcParams.threadCount;
+            }
+
+            if (astcParams.normalMap !== undefined) {
+                ktxAstcParams.normalMap = astcParams.normalMap;
+            }
+
+            if (inputSwizzle !== undefined) {
+                ktxAstcParams.inputSwizzle = inputSwizzle;
+            }
+
+            ktxAstcParams.blockDimension = blockDimension;
+            ktxAstcParams.mode = mode;
+            ktxAstcParams.qualityLevel = qualityLevel;
+
+            const errorCode = this._ktxTexture.compressAstc(ktxAstcParams);
+            return Mapper.mapErrorCodeFromKtxLib(errorCode);
+        } finally {
+            // astcParams is an Embind object and must be freed explicitly.
+            ktxAstcParams.delete?.();
+        }
+    }
+
+    /** @inheritDoc */
+    public decodeAstc(): KtxErrorCode {
+        const errorCode = this._ktxTexture.decodeAstc();
+        return Mapper.mapErrorCodeFromKtxLib(errorCode);
     }
 
     /** @inheritDoc */
@@ -140,8 +189,7 @@ export class Ktx2Texture implements IKtx2Texture {
                 );
                 ktxBasisParams.uastcRDO = basisParams.uastcRDO ?? false;
                 ktxBasisParams.uastcRDOQualityScalar = basisParams.uastcRDOQualityScalar ?? 1;
-            }
-            else {
+            } else {
                 // ETC1S
                 ktxBasisParams.uastc = false;
                 ktxBasisParams.noSSE = true; // Forbid SSE. Ignored when the CPU has no SSE.
@@ -220,6 +268,22 @@ export class Ktx2Texture implements IKtx2Texture {
     public deflateZstd(compressionLevel: number): KtxErrorCode {
         const errorCode = this._ktxTexture.deflateZstd(compressionLevel);
         return Mapper.mapErrorCodeFromKtxLib(errorCode);
+    }
+
+    /** @inheritDoc */
+    public glUpload(): UploadResult {
+        if (!this._ktxLib.GL?.currentContext) {
+            throw new Error("glUpload: no WebGL context. Pass preinitializedWebGLContext to Ktx2Factory.initializeAsync first.");
+        }
+        if (this.needsTranscoding) {
+            throw new Error("glUpload: the texture holds Basis Universal data. Call transcodeBasis first.");
+        }
+        const ktxGlUpload = this._ktxTexture.glUpload();
+        return {
+            error: ktxGlUpload.error ?? 0,
+            object: ktxGlUpload.object ?? undefined,
+            target: ktxGlUpload.target ?? 0,
+        };
     }
 
     /** @inheritDoc */

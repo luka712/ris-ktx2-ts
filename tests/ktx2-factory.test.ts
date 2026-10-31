@@ -86,6 +86,70 @@ describe("Ktx2Factory", () => {
     });
 
     describe("initializeAsync", () => {
+        describe("preinitializedWebGLContext", () => {
+            class FakeWebGL2 {}
+            class FakeWebGL1 {}
+
+            function libWithGl() {
+                let next = 1;
+                const GL = {
+                    registerContext: vi.fn(() => next++),
+                    makeContextCurrent: vi.fn(),
+                };
+                return {...createMockKtxLib(), GL};
+            }
+
+            it("registers a WebGL2 context with majorVersion 2 and makes the handle current", async () => {
+                vi.stubGlobal("WebGL2RenderingContext", FakeWebGL2);
+                const lib = libWithGl();
+                createKtxModuleAsync.mockResolvedValue(lib);
+                const gl = new FakeWebGL2() as unknown as WebGL2RenderingContext;
+
+                await new Ktx2Factory().initializeAsync({preinitializedWebGLContext: gl});
+
+                expect(lib.GL.registerContext).toHaveBeenCalledWith(gl, {majorVersion: 2});
+                expect(lib.GL.makeContextCurrent).toHaveBeenCalledWith(1);
+            });
+
+            it("registers a WebGL1 context with majorVersion 1", async () => {
+                vi.stubGlobal("WebGL2RenderingContext", FakeWebGL2);
+                const lib = libWithGl();
+                createKtxModuleAsync.mockResolvedValue(lib);
+                const gl = new FakeWebGL1() as unknown as WebGLRenderingContext;
+
+                await new Ktx2Factory().initializeAsync({preinitializedWebGLContext: gl});
+
+                expect(lib.GL.registerContext).toHaveBeenCalledWith(gl, {majorVersion: 1});
+            });
+
+            it("switches to the context of a later call without reloading the module", async () => {
+                vi.stubGlobal("WebGL2RenderingContext", FakeWebGL2);
+                const lib = libWithGl();
+                createKtxModuleAsync.mockResolvedValue(lib);
+                const factory = new Ktx2Factory();
+                const first = new FakeWebGL2() as unknown as WebGL2RenderingContext;
+                const second = new FakeWebGL2() as unknown as WebGL2RenderingContext;
+
+                await factory.initializeAsync({preinitializedWebGLContext: first});
+                await factory.initializeAsync({preinitializedWebGLContext: second});
+
+                expect(createKtxModuleAsync).toHaveBeenCalledTimes(1);
+                expect(lib.GL.registerContext).toHaveBeenLastCalledWith(second, {majorVersion: 2});
+                expect(lib.GL.makeContextCurrent).toHaveBeenLastCalledWith(2);
+            });
+
+            it("does not touch GL when no context is passed", async () => {
+                const lib = libWithGl();
+                createKtxModuleAsync.mockResolvedValue(lib);
+
+                await new Ktx2Factory().initializeAsync();
+                await new Ktx2Factory().initializeAsync({preinitializedWebGLContext: null});
+
+                expect(lib.GL.registerContext).not.toHaveBeenCalled();
+                expect(lib.GL.makeContextCurrent).not.toHaveBeenCalled();
+            });
+        });
+
         it("shares one load between concurrent calls and factories", async () => {
             let resolve!: (lib: unknown) => void;
             createKtxModuleAsync.mockReturnValue(new Promise(r => (resolve = r)));

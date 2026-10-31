@@ -1,0 +1,100 @@
+import {readFileSync} from "node:fs";
+import {createRequire} from "node:module";
+import {fileURLToPath} from "node:url";
+import {dirname, resolve} from "node:path";
+import {beforeAll, describe, expect, it} from "vitest";
+import {
+    AstcQualityLevel,
+    Ktx2Factory,
+    KtxAstcBlockDimension,
+    KtxErrorCode,
+    VkFormat,
+} from "../src";
+
+// Real libktx wasm, loaded in Node for tests only. The package itself never
+// imports node:fs; this file is not part of dist.
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+async function loadLibKtx(): Promise<any> {
+    const glue = readFileSync(resolve(root, "libktx.js"), "utf8");
+    const LIBKTX = new Function("require", "__dirname", "__filename", glue + "\nreturn LIBKTX;")(
+        createRequire(import.meta.url), root, resolve(root, "libktx.js"),
+    );
+    return LIBKTX({wasmBinary: readFileSync(resolve(root, "libktx.wasm"))});
+}
+
+function gradient(width: number, height: number): Uint8Array {
+    const pixels = new Uint8Array(width * height * 4);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const i = (y * width + x) * 4;
+            pixels.set([x * 4, y * 4, (x ^ y) * 4, 255], i);
+        }
+    }
+    return pixels;
+}
+
+describe("compressAstc with the real libktx wasm", () => {
+    const factory = new Ktx2Factory();
+
+    beforeAll(async () => {
+        (Ktx2Factory as unknown as {_ktxLib?: unknown})._ktxLib = await loadLibKtx();
+    });
+
+    const cases: Array<[KtxAstcBlockDimension, number, number, VkFormat]> = [
+        [KtxAstcBlockDimension.D4x4, 4, 4, VkFormat.ASTC_4X4_SRGB_BLOCK],
+        [KtxAstcBlockDimension.D6x6, 6, 6, VkFormat.ASTC_6X6_SRGB_BLOCK],
+    ];
+
+    it.each(cases)("encodes 64x64 RGBA8 as ASTC block dimension %s", (dimension, bw, bh, expectedFormat) => {
+        const texture = factory.create({baseWidth: 64, baseHeight: 64});
+        expect(texture.setImageFromMemory(0, 0, 0, gradient(64, 64))).toBe(KtxErrorCode.SUCCESS);
+
+        const code = texture.compressAstc({blockDimension: dimension, qualityLevel: AstcQualityLevel.FASTEST});
+
+        expect(code).toBe(KtxErrorCode.SUCCESS);
+        expect(texture.vkFormat).toBe(expectedFormat);
+        expect(texture.width).toBe(64);
+        expect(texture.height).toBe(64);
+        expect(texture.needsTranscoding).toBe(false);
+        expect(texture.dataSize).toBe(Math.ceil(64 / bw) * Math.ceil(64 / bh) * 16);
+        const info = texture.getTextureFormatInfo(texture.vkFormat);
+        expect([info.blockWidth, info.blockHeight, info.bytesPerBlock]).toEqual([bw, bh, 16]);
+
+        const bytes = (texture.writeToMemory() as Uint8Array).slice();
+        texture.delete();
+
+        const loaded = factory.createFromBuffer(bytes);
+        expect(loaded.vkFormat).toBe(expectedFormat);
+        expect(loaded.dataSize).toBe(Math.ceil(64 / bw) * Math.ceil(64 / bh) * 16);
+        expect(loaded.width).toBe(64);
+        loaded.delete();
+    });
+
+    it("encodes with the defaults", () => {
+        const texture = factory.create({baseWidth: 16, baseHeight: 16, vkFormat: VkFormat.R8G8B8A8_UNORM});
+        texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
+        expect(texture.compressAstc()).toBe(KtxErrorCode.SUCCESS);
+        expect(texture.vkFormat).toBe(VkFormat.ASTC_4X4_UNORM_BLOCK);
+        texture.delete();
+    });
+
+    it("returns INVALID_OPERATION when the texture is already ASTC", () => {
+        const texture = factory.create({baseWidth: 16, baseHeight: 16});
+        texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
+        texture.compressAstc({qualityLevel: AstcQualityLevel.FASTEST});
+        expect(texture.compressAstc()).toBe(KtxErrorCode.INVALID_OPERATION);
+        texture.delete();
+    });
+
+    it("decodeAstc turns ASTC back into RGBA8", () => {
+        const texture = factory.create({baseWidth: 16, baseHeight: 16});
+        texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
+        texture.compressAstc({qualityLevel: AstcQualityLevel.FASTEST});
+        const code = texture.decodeAstc();
+        expect(code).toBe(KtxErrorCode.SUCCESS);
+        expect([VkFormat.R8G8B8A8_SRGB, VkFormat.R8G8B8A8_UNORM]).toContain(texture.vkFormat);
+        expect(texture.dataSize).toBe(16 * 16 * 4);
+        texture.delete();
+    });
+});
