@@ -1,6 +1,6 @@
 {
   "name": "ris-ktx2",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser TypeScript library for loading, creating, and transcoding KTX2 textures, including the interfaces, enumerations, and texture-format helpers.",
   "type": "module",
   "author": "Luka Erkapic <erkapic.luka.dev@gmail.com>",

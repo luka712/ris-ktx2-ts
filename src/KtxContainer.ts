@@ -14,6 +14,9 @@ const KTX2_IDENTIFIER = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0
 /** Byte offset of `levelCount` in the KTX2 header. Always little-endian. */
 export const KTX2_LEVEL_COUNT_OFFSET = 40;
 
+/** Byte offset of `supercompressionScheme` in the KTX2 header. Always little-endian. */
+export const KTX2_SUPERCOMPRESSION_SCHEME_OFFSET = 44;
+
 /** Byte offset of `endianness` in the KTX1 header. */
 const KTX1_ENDIANNESS_OFFSET = 12;
 
@@ -86,4 +89,17 @@ function startsWith(bytes: Uint8Array, prefix: number[]): boolean {
         }
     }
     return true;
+}
+
+/**
+ * Reads the raw `supercompressionScheme` value from a KTX2 header.
+ * KTX1 has no supercompression, so it and truncated data return `0` (none).
+ * @internal
+ */
+export function readSupercompressionScheme(bytes: Uint8Array): number {
+    if (detectKtxContainer(bytes) !== "ktx2" || bytes.byteLength < KTX2_SUPERCOMPRESSION_SCHEME_OFFSET + 4) {
+        return 0;
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return view.getUint32(KTX2_SUPERCOMPRESSION_SCHEME_OFFSET, true);
 }

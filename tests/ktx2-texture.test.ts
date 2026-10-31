@@ -1,6 +1,9 @@
 import {describe, it, expect, vi} from "vitest";
 import {Ktx2Texture} from "../src/Ktx2Texture";
 import {
+    KtxAstcQualityLevel,
+    KtxAstcBlockDimension,
+    KtxAstcEncoderMode,
     KtxErrorCode,
     KtxTranscodeFlags,
     KtxTranscodeFormat,
@@ -20,6 +23,9 @@ type MockTexture = {
     getImage: ReturnType<typeof vi.fn>;
     transcodeBasis: ReturnType<typeof vi.fn>;
     compressBasis: ReturnType<typeof vi.fn>;
+    compressAstc: ReturnType<typeof vi.fn>;
+    glUpload: ReturnType<typeof vi.fn>;
+    decodeAstc: ReturnType<typeof vi.fn>;
     createCopy: ReturnType<typeof vi.fn>;
     setImageFromMemory: ReturnType<typeof vi.fn>;
     writeToMemory: ReturnType<typeof vi.fn>;
@@ -45,6 +51,40 @@ class BasisParams {
         this.deleted = true;
     }
 }
+
+class AstcParams {
+    static lastCreated?: AstcParams;
+    verbose?: boolean;
+    threadCount?: number;
+    blockDimension?: unknown;
+    mode?: unknown;
+    qualityLevel?: unknown;
+    normalMap?: boolean;
+    inputSwizzle?: string;
+    deleted = false;
+    constructor() {
+        AstcParams.lastCreated = this;
+    }
+    delete() {
+        this.deleted = true;
+    }
+}
+
+/** Embind-style enum objects: one `{value}` object per member name. */
+function embindEnum(values: Record<string, number>): Record<string, {value: number}> {
+    return Object.fromEntries(Object.entries(values).map(([k, v]) => [k, {value: v}]));
+}
+
+const ASTC_ENUMS = {
+    pack_astc_block_dimension: embindEnum(Object.fromEntries(
+        Object.keys(KtxAstcBlockDimension).filter(k => isNaN(Number(k)))
+            .map(k => [k, KtxAstcBlockDimension[k as keyof typeof KtxAstcBlockDimension]]),
+    )),
+    pack_astc_encoder_mode: embindEnum({DEFAULT: 0, LDR: 1, HDR: 2}),
+    pack_astc_quality_levels: embindEnum({FASTEST: 0, FAST: 10, MEDIUM: 60, THOROUGH: 98, EXHAUSTIVE: 100}),
+};
+
+const GL_TEXTURE = {name: "webgl-texture"};
 
 function headerWithLevels(numLevels: number): Uint8Array {
     const buffer = new Uint8Array(44);
@@ -80,6 +120,9 @@ function createMockKtxTexture(overrides: Partial<MockTexture> = {}): MockTexture
         getImage: vi.fn(() => new Uint8Array([1, 2, 3])),
         transcodeBasis: vi.fn(() => ({value: 0})),
         compressBasis: vi.fn(() => ({value: 0})),
+        compressAstc: vi.fn(() => ({value: 0})),
+        glUpload: vi.fn(() => ({error: 0, object: GL_TEXTURE, target: 0x0DE1})),
+        decodeAstc: vi.fn(() => ({value: 0})),
         createCopy: vi.fn(),
         setImageFromMemory: vi.fn(() => ({value: 0})),
         writeToMemory: vi.fn(() => new Uint8Array([9])),
@@ -93,6 +136,8 @@ function createMockKtxTexture(overrides: Partial<MockTexture> = {}): MockTexture
 function createMockKtxLib() {
     return {
         basisParams: BasisParams,
+        astcParams: AstcParams,
+        ...ASTC_ENUMS,
         TranscodeTarget: {
             BC7_RGBA: "bc7",
             ASTC_4x4_RGBA: "astc",
@@ -354,7 +399,7 @@ describe("Ktx2Texture", () => {
             const texture = createTexture();
 
             expect(() => texture.transcodeBasis(
-                KtxTranscodeFormat.KTX_TTF_ETC1_RGB,
+                KtxTranscodeFormat.ETC1_RGB,
                 KtxTranscodeFlags.NONE,
             )).toThrow(/Unsupported transcodeFormat/);
         });
@@ -505,10 +550,149 @@ describe("Ktx2Texture", () => {
     });
 
     describe("compressAstc", () => {
-        it("throws because the method is not implemented", () => {
-            const texture = createTexture();
+        it("uses 4x4, DEFAULT mode and MEDIUM quality when params are omitted", () => {
+            const native = createMockKtxTexture();
+            const texture = createTexture(native);
 
-            expect(() => texture.compressAstc(75)).toThrow(/Method not implemented/);
+            expect(texture.compressAstc()).toBe(KtxErrorCode.SUCCESS);
+
+            const params = native.compressAstc.mock.calls[0][0] as AstcParams;
+            expect(params.blockDimension).toBe(ASTC_ENUMS.pack_astc_block_dimension.D4x4);
+            expect(params.mode).toBe(ASTC_ENUMS.pack_astc_encoder_mode.DEFAULT);
+            expect(params.qualityLevel).toBe(ASTC_ENUMS.pack_astc_quality_levels.MEDIUM);
+            expect(params.verbose).toBe(false);
+            expect(params.threadCount).toBeUndefined();
+            expect(params.normalMap).toBeUndefined();
+            expect(params.inputSwizzle).toBeUndefined();
+        });
+
+        it("maps every field onto the libktx astcParams enum members", () => {
+            const native = createMockKtxTexture();
+            const texture = createTexture(native);
+
+            texture.compressAstc({
+                blockDimension: KtxAstcBlockDimension.D6x6,
+                mode: KtxAstcEncoderMode.LDR,
+                qualityLevel: KtxAstcQualityLevel.EXHAUSTIVE,
+                normalMap: true,
+                threadCount: 4,
+                inputSwizzle: ["r", "r", "r", "g"],
+                verbose: true,
+            });
+
+            const params = native.compressAstc.mock.calls[0][0] as AstcParams;
+            expect(params.blockDimension).toBe(ASTC_ENUMS.pack_astc_block_dimension.D6x6);
+            expect(params.mode).toBe(ASTC_ENUMS.pack_astc_encoder_mode.LDR);
+            expect(params.qualityLevel).toBe(ASTC_ENUMS.pack_astc_quality_levels.EXHAUSTIVE);
+            expect(params.normalMap).toBe(true);
+            expect(params.threadCount).toBe(4);
+            expect(params.inputSwizzle).toBe("rrrg");
+            expect(params.verbose).toBe(true);
+        });
+
+        it.each(Object.values(KtxAstcQualityLevel))("maps quality %s by name", (quality) => {
+            const native = createMockKtxTexture();
+            createTexture(native).compressAstc({qualityLevel: quality});
+            const params = native.compressAstc.mock.calls[0][0] as AstcParams;
+            expect(params.qualityLevel).toBe(ASTC_ENUMS.pack_astc_quality_levels[quality]);
+        });
+
+        it("leaves threadCount unset for 1", () => {
+            const native = createMockKtxTexture();
+            createTexture(native).compressAstc({threadCount: 1});
+            expect((native.compressAstc.mock.calls[0][0] as AstcParams).threadCount).toBeUndefined();
+        });
+
+        it("returns the mapped error and frees the libktx astcParams", () => {
+            const native = createMockKtxTexture({compressAstc: vi.fn(() => ({value: 10}))});
+            const texture = createTexture(native);
+
+            expect(texture.compressAstc()).toBe(KtxErrorCode.INVALID_OPERATION);
+            const params = native.compressAstc.mock.calls[0][0] as AstcParams;
+            expect(params).toBeInstanceOf(AstcParams);
+            expect(params.deleted).toBe(true);
+        });
+
+        it("frees the astcParams when libktx throws", () => {
+            const native = createMockKtxTexture({compressAstc: vi.fn(() => { throw new Error("boom"); })});
+            expect(() => createTexture(native).compressAstc()).toThrow("boom");
+            expect(AstcParams.lastCreated?.deleted).toBe(true);
+        });
+
+        it("throws for invalid params before calling libktx", () => {
+            const native = createMockKtxTexture();
+            const texture = createTexture(native);
+
+            expect(() => texture.compressAstc({inputSwizzle: ["r", "g", "x", "a"]})).toThrow(/Invalid inputSwizzle/);
+            expect(() => texture.compressAstc({blockDimension: 99 as KtxAstcBlockDimension})).toThrow(/Unsupported blockDimension/);
+            expect(() => texture.compressAstc({mode: 7 as KtxAstcEncoderMode})).toThrow(/Unsupported mode/);
+            expect(() => texture.compressAstc({qualityLevel: "BEST" as KtxAstcQualityLevel})).toThrow(/Unsupported qualityLevel/);
+            expect(native.compressAstc).not.toHaveBeenCalled();
+        });
+
+        it("reflects the new ASTC data through the live getters", () => {
+            const native = createMockKtxTexture({needsTranscoding: false});
+            native.compressAstc = vi.fn(() => {
+                native.vkFormat = VkFormat.ASTC_6X6_SRGB_BLOCK;
+                native.dataSize = 1936;
+                return {value: 0};
+            });
+            const texture = createTexture(native);
+
+            texture.compressAstc({blockDimension: KtxAstcBlockDimension.D6x6});
+
+            expect(texture.vkFormat).toBe(VkFormat.ASTC_6X6_SRGB_BLOCK);
+            expect(texture.dataSize).toBe(1936);
+            expect(texture.getTextureFormatInfo(texture.vkFormat).blockWidth).toBe(6);
+        });
+    });
+
+    describe("glUpload", () => {
+        const withGl = (gl: unknown = {currentContext: {}}) => ({...createMockKtxLib(), GL: gl});
+
+        it("returns the WebGL texture, target and error 0 on success", () => {
+            const native = createMockKtxTexture({needsTranscoding: false});
+            const texture = new Ktx2Texture(withGl(), native, headerWithLevels(1));
+
+            expect(texture.glUpload()).toEqual({error: 0, object: GL_TEXTURE, target: 0x0DE1});
+            expect(native.glUpload).toHaveBeenCalledOnce();
+        });
+
+        it("returns the GL error and no object when libktx fails", () => {
+            const native = createMockKtxTexture({
+                needsTranscoding: false,
+                glUpload: vi.fn(() => ({error: 0x0500, object: null, target: 0x0DE1})),
+            });
+            const texture = new Ktx2Texture(withGl(), native, headerWithLevels(1));
+
+            const result = texture.glUpload();
+            expect(result.error).toBe(0x0500);
+            expect(result.object).toBeUndefined();
+        });
+
+        it("throws when no WebGL context was set", () => {
+            const native = createMockKtxTexture({needsTranscoding: false});
+            for (const lib of [createMockKtxLib(), withGl({currentContext: null})]) {
+                const texture = new Ktx2Texture(lib, native, headerWithLevels(1));
+                expect(() => texture.glUpload()).toThrow(/no WebGL context.*preinitializedWebGLContext/);
+            }
+            expect(native.glUpload).not.toHaveBeenCalled();
+        });
+
+        it("throws while the texture still needs transcoding", () => {
+            const native = createMockKtxTexture({needsTranscoding: true});
+            const texture = new Ktx2Texture(withGl(), native, headerWithLevels(1));
+
+            expect(() => texture.glUpload()).toThrow(/transcodeBasis first/);
+            expect(native.glUpload).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("decodeAstc", () => {
+        it("returns the mapped libktx error code", () => {
+            const native = createMockKtxTexture();
+            expect(createTexture(native).decodeAstc()).toBe(KtxErrorCode.SUCCESS);
+            expect(native.decodeAstc).toHaveBeenCalledOnce();
         });
     });
 
@@ -516,6 +700,8 @@ describe("Ktx2Texture", () => {
         const layouts: Array<[VkFormat, TextureFormatInfo]> = [
             [VkFormat.ASTC_4X4_UNORM_BLOCK, TextureFormatInfo.astc4x4rgba()],
             [VkFormat.ASTC_4X4_SRGB_BLOCK, TextureFormatInfo.astc4x4rgba()],
+            [VkFormat.ASTC_6X6_SRGB_BLOCK, TextureFormatInfo.astc6x6rgba()],
+            [VkFormat.ASTC_12X12_UNORM_BLOCK, TextureFormatInfo.astc12x12rgba()],
             [VkFormat.BC7_UNORM_BLOCK, TextureFormatInfo.bc7()],
             [VkFormat.BC7_SRGB_BLOCK, TextureFormatInfo.bc7()],
             [VkFormat.BC3_UNORM_BLOCK, TextureFormatInfo.bc3()],

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.0
+
+### Breaking changes
+
+- `KtxTranscodeFormat` members drop the `KTX_TTF_` prefix, for example `KTX_TTF_BC7_RGBA` is now `BC7_RGBA`.
+- `compressAstc` now takes an optional `IKtxAstcParams` object instead of a quality number.
+- `createKtxModuleAsync` is no longer exported. Use `Ktx2Factory.initializeAsync`.
+
+### Added
+
+- ASTC encoding with `compressAstc` (2D block sizes) and decoding with `decodeAstc`.
+- WebGL upload with `glUpload`. Pass your context with `initializeAsync({ preinitializedWebGLContext: gl })`.
+- `supercompressionScheme` and `oetf` texture properties.
+- `TextureFormatInfo` for all ASTC block sizes and PVRTC 4bpp.
+
 ## 0.1.0
 
 First public release.
@@ -8,7 +23,6 @@ First public release.
 
 - `Ktx2Factory`, which implements `IKtx2Factory`: `initializeAsync`, `loadAsync`, `create`, and `createFromBuffer`.
 - `IKtx2Texture`, returned by every factory method: dimensions, mip level count, Basis Universal encoding (ETC1S, and UASTC with level and hint flags, plus `normalMap`, `inputSwizzle`, and `threadCount`), transcoding to BC7, BC3, ETC2 RGBA, ASTC 4×4, and RGBA32, image get and set, zlib and Zstandard supercompression, copy, write to memory, and `getTextureFormatInfo(vkFormat)` for the block layout of a `VkFormat`.
-- `createKtxModuleAsync`, which loads libktx on the main thread or in a Web Worker without `document` or `window`.
 - Interfaces, enumerations, and `TextureFormatInfo` ship in this package. The separate `ris-ktx2-api` package is no longer needed.
 - Khronos `libktx.js` and `libktx.wasm` for browser use. The built package inlines the wasm binary.
 - TypeDoc API reference: https://luka712.github.io/ris-ktx2-ts/

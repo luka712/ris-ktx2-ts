@@ -5,10 +5,17 @@ import {VkFormat} from "./VkFormat";
 import type {IKtxBasisParams} from "./IKtxBasisParams";
 import {KtxTranscodeFormat} from "./KtxTranscodeFormat";
 import {KtxTranscodeFlags} from "./KtxTranscodeFlags";
-import type {KtxErrorCode} from "./KtxErrorCode";
+import {KtxErrorCode} from "./KtxErrorCode";
 import {KtxUastcFlags} from "./KtxUastcFlags";
 import {TextureFormatInfo} from "./TextureFormatInfo";
-import {detectKtxContainer, readNumLevels, toUint8Array} from "./KtxContainer";
+import {detectKtxContainer, readNumLevels, readSupercompressionScheme, toUint8Array} from "./KtxContainer";
+import type {IKtxAstcParams} from "./IKtxAstcParams";
+import {KtxAstcQualityLevel} from "./KtxAstcQualityLevel";
+import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
+import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
+import type { IKtxUploadResult } from "./IKtxUploadResult";
+import {KtxSupercompressionScheme} from "./KtxSupercompressionScheme";
+import type {KtxDFTransfer} from "./KtxDFTransfer";
 
 /**
  * libktx-backed implementation of {@link IKtx2Texture}. Create instances
@@ -24,6 +31,12 @@ export class Ktx2Texture implements IKtx2Texture {
     private readonly _ktxTexture: any;
 
     private _numLevels = 0;
+
+    /**
+     * libktx's Embind texture does not expose the scheme, so it is read from
+     * the file header and updated by the compress and deflate calls.
+     */
+    private _supercompressionScheme = KtxSupercompressionScheme.NONE;
 
     /** `true` for KTX1 data. libktx has no `vkFormat` for KTX1 textures. */
     private _isKtx1 = false;
@@ -48,11 +61,13 @@ export class Ktx2Texture implements IKtx2Texture {
             // Copy: keep the source's metadata.
             this._numLevels = data._numLevels;
             this._isKtx1 = data._isKtx1;
+            this._supercompressionScheme = data._supercompressionScheme;
         } else if (ArrayBuffer.isView(data)) {
             // File bytes, as any view type: read the header.
             const bytes = toUint8Array(data);
             this._isKtx1 = detectKtxContainer(bytes) === "ktx1";
             this._numLevels = readNumLevels(bytes);
+            this._supercompressionScheme = Mapper.mapSupercompressionScheme(readSupercompressionScheme(bytes));
         } else {
             // Create info.
             this._numLevels = (data as IKtxTextureCreateInfo).numLevels ?? 0;
@@ -94,8 +109,62 @@ export class Ktx2Texture implements IKtx2Texture {
     }
 
     /** @inheritDoc */
-    public compressAstc(_quality: number): KtxErrorCode {
-        throw new Error("Method not implemented.");
+    public get supercompressionScheme(): KtxSupercompressionScheme {
+        return this._supercompressionScheme;
+    }
+
+    /** @inheritDoc */
+    public get oetf(): KtxDFTransfer {
+        return Mapper.mapTransferFunction(this._ktxTexture.oetf);
+    }
+
+    /** @inheritDoc */
+    public compressAstc(astcParams: IKtxAstcParams = {}): KtxErrorCode {
+        // Validate and map before allocating the Embind object, so a throw
+        // does not leak it.
+        const blockDimension = Mapper.mapAstcBlockDimension(
+            this._ktxLib, astcParams.blockDimension ?? KtxAstcBlockDimension.D4x4);
+        const mode = Mapper.mapAstcEncoderMode(
+            this._ktxLib, astcParams.mode ?? KtxAstcEncoderMode.DEFAULT);
+        const qualityLevel = Mapper.mapAstcQuality(
+            this._ktxLib, astcParams.qualityLevel ?? KtxAstcQualityLevel.MEDIUM);
+        const inputSwizzle = astcParams.inputSwizzle !== undefined
+            ? Mapper.mapInputSwizzle(astcParams.inputSwizzle)
+            : undefined;
+
+        const ktxAstcParams = new this._ktxLib.astcParams();
+        try {
+            ktxAstcParams.verbose = astcParams.verbose === true;
+
+            // libktx defaults to one thread; only pass larger values.
+            if (astcParams.threadCount && astcParams.threadCount > 1) {
+                ktxAstcParams.threadCount = astcParams.threadCount;
+            }
+
+            if (astcParams.normalMap !== undefined) {
+                ktxAstcParams.normalMap = astcParams.normalMap;
+            }
+
+            if (inputSwizzle !== undefined) {
+                ktxAstcParams.inputSwizzle = inputSwizzle;
+            }
+
+            ktxAstcParams.blockDimension = blockDimension;
+            ktxAstcParams.mode = mode;
+            ktxAstcParams.qualityLevel = qualityLevel;
+
+            const errorCode = this._ktxTexture.compressAstc(ktxAstcParams);
+            return Mapper.mapErrorCodeFromKtxLib(errorCode);
+        } finally {
+            // astcParams is an Embind object and must be freed explicitly.
+            ktxAstcParams.delete?.();
+        }
+    }
+
+    /** @inheritDoc */
+    public decodeAstc(): KtxErrorCode {
+        const errorCode = this._ktxTexture.decodeAstc();
+        return Mapper.mapErrorCodeFromKtxLib(errorCode);
     }
 
     /** @inheritDoc */
@@ -140,8 +209,7 @@ export class Ktx2Texture implements IKtx2Texture {
                 );
                 ktxBasisParams.uastcRDO = basisParams.uastcRDO ?? false;
                 ktxBasisParams.uastcRDOQualityScalar = basisParams.uastcRDOQualityScalar ?? 1;
-            }
-            else {
+            } else {
                 // ETC1S
                 ktxBasisParams.uastc = false;
                 ktxBasisParams.noSSE = true; // Forbid SSE. Ignored when the CPU has no SSE.
@@ -149,8 +217,14 @@ export class Ktx2Texture implements IKtx2Texture {
                 ktxBasisParams.compressionLevel = basisParams.compressionLevel ?? 2;
             }
 
-            const errorCode = this._ktxTexture.compressBasis(ktxBasisParams);
-            return Mapper.mapErrorCodeFromKtxLib(errorCode);
+            const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.compressBasis(ktxBasisParams));
+            if (errorCode === KtxErrorCode.SUCCESS) {
+                // ETC1S is stored BasisLZ-supercompressed; UASTC is not.
+                this._supercompressionScheme = basisParams.uastc === true
+                    ? KtxSupercompressionScheme.NONE
+                    : KtxSupercompressionScheme.BASIS_LZ;
+            }
+            return errorCode;
         } finally {
             // basisParams is an Embind object and must be freed explicitly.
             ktxBasisParams.delete?.();
@@ -212,14 +286,36 @@ export class Ktx2Texture implements IKtx2Texture {
 
     /** @inheritDoc */
     public deflateZlib(compressionLevel: number): KtxErrorCode {
-        const errorCode = this._ktxTexture.deflateZLIB(compressionLevel);
-        return Mapper.mapErrorCodeFromKtxLib(errorCode);
+        const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.deflateZLIB(compressionLevel));
+        if (errorCode === KtxErrorCode.SUCCESS) {
+            this._supercompressionScheme = KtxSupercompressionScheme.ZLIB;
+        }
+        return errorCode;
     }
 
     /** @inheritDoc */
     public deflateZstd(compressionLevel: number): KtxErrorCode {
-        const errorCode = this._ktxTexture.deflateZstd(compressionLevel);
-        return Mapper.mapErrorCodeFromKtxLib(errorCode);
+        const errorCode = Mapper.mapErrorCodeFromKtxLib(this._ktxTexture.deflateZstd(compressionLevel));
+        if (errorCode === KtxErrorCode.SUCCESS) {
+            this._supercompressionScheme = KtxSupercompressionScheme.ZSTD;
+        }
+        return errorCode;
+    }
+
+    /** @inheritDoc */
+    public glUpload(): IKtxUploadResult {
+        if (!this._ktxLib.GL?.currentContext) {
+            throw new Error("glUpload: no WebGL context. Pass preinitializedWebGLContext to Ktx2Factory.initializeAsync first.");
+        }
+        if (this.needsTranscoding) {
+            throw new Error("glUpload: the texture holds Basis Universal data. Call transcodeBasis first.");
+        }
+        const ktxGlUpload = this._ktxTexture.glUpload();
+        return {
+            error: ktxGlUpload.error ?? 0,
+            object: ktxGlUpload.object ?? undefined,
+            target: ktxGlUpload.target ?? 0,
+        };
     }
 
     /** @inheritDoc */

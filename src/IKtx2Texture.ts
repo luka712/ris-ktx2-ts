@@ -4,6 +4,13 @@ import {KtxTranscodeFormat} from "./KtxTranscodeFormat";
 import {VkFormat} from "./VkFormat";
 import type {TextureFormatInfo} from "./TextureFormatInfo";
 import type {KtxErrorCode} from "./KtxErrorCode";
+import type {IKtxAstcParams} from "./IKtxAstcParams";
+import type {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
+import type {KtxAstcQualityLevel} from "./KtxAstcQualityLevel";
+import type {IKtx2Factory} from "./IKtx2Factory";
+import type {IKtxUploadResult} from "./IKtxUploadResult";
+import type {KtxSupercompressionScheme} from "./KtxSupercompressionScheme";
+import type {KtxDFTransfer} from "./KtxDFTransfer";
 
 /**
  * A KTX2 texture backed by a native libktx texture.
@@ -92,6 +99,36 @@ export interface IKtx2Texture {
     readonly vkFormat: VkFormat;
 
     /**
+     * Supercompression scheme applied to the texture's image data.
+     *
+     * Reports the scheme currently stored in the native KTX texture:
+     * - {@link KtxSupercompressionScheme.NONE}: No supercompression.
+     * - {@link KtxSupercompressionScheme.BASIS_LZ}: Basis Universal LZ supercompression
+     *   used with ETC1S data.
+     * - {@link KtxSupercompressionScheme.ZSTD}: Zstandard lossless supercompression.
+     * - {@link KtxSupercompressionScheme.ZLIB}: Zlib lossless supercompression.
+     *
+     * The value reflects changes made by {@link IKtx2Texture.compressBasis},
+     * {@link IKtx2Texture.deflateZstd}, and {@link IKtx2Texture.deflateZlib}.
+     *
+     * @remarks
+     * This property describes the KTX container's supercompression scheme,
+     * not the GPU texture format. For example, a BC7 texture can use
+     * {@link KtxSupercompressionScheme.ZSTD} supercompression.
+     */
+    readonly supercompressionScheme: KtxSupercompressionScheme;
+
+    /**
+     * Transfer function (OETF) from the texture's data format descriptor.
+     *
+     * {@link KtxDFTransfer.SRGB} means the color data is sRGB-encoded and
+     * should be uploaded with an sRGB format, {@link KtxDFTransfer.LINEAR}
+     * means it is linear. Textures created with {@link IKtx2Factory.create}
+     * take it from their `vkFormat` (for example `R8G8B8A8_SRGB` is sRGB).
+     */
+    readonly oetf: KtxDFTransfer;
+
+    /**
      * Transcodes Basis Universal data to a GPU block format or to RGBA32.
      *
      * Supported targets: {@link KtxTranscodeFormat.ETC2_RGBA},
@@ -156,17 +193,43 @@ export interface IKtx2Texture {
     compressBasis(basisParams: IKtxBasisParams): KtxErrorCode;
     
     /**
-     * ASTC compression. Not supported in this version.
+     * Encodes the image data as ASTC.
      *
-     * The method always throws. ASTC compression is planned. To get ASTC data
-     * today, encode with {@link IKtx2Texture.compressBasis} and transcode to
-     * {@link KtxTranscodeFormat.ASTC_4X4_RGBA}.
+     * The texture must hold uncompressed data, such as a texture from
+     * {@link IKtx2Factory.create} with its images set. The data is replaced
+     * in place: afterward {@link IKtx2Texture.vkFormat} is the matching ASTC
+     * format (for example `ASTC_6X6_SRGB_BLOCK` for an sRGB texture and
+     * {@link KtxAstcBlockDimension.D6x6}), {@link IKtx2Texture.dataSize} is the
+     * compressed size, and {@link IKtx2Texture.needsTranscoding} is `false`.
      *
-     * @param quality - Reserved for the planned implementation.
-     * @returns Never returns.
-     * @throws {Error} Always.
+     * See {@link IKtxAstcParams} for the settings and defaults.
+     *
+     * @param astcParams - ASTC encoder settings. Omit for 4×4 blocks at
+     * {@link KtxAstcQualityLevel.MEDIUM}.
+     * @returns {@link KtxErrorCode.SUCCESS}, or the libktx error. libktx
+     * returns {@link KtxErrorCode.INVALID_OPERATION} when the texture cannot
+     * be encoded, for example because it is already block-compressed or
+     * supercompressed.
+     * @throws {Error} When {@link IKtxAstcParams.inputSwizzle},
+     * {@link IKtxAstcParams.blockDimension}, {@link IKtxAstcParams.mode}, or
+     * {@link IKtxAstcParams.qualityLevel} is not valid.
+     *
+     * @example
+     * ```ts
+     * texture.compressAstc({ blockDimension: KtxAstcBlockDimension.D6x6, qualityLevel: KtxAstcQualityLevel.THOROUGH });
+     * ```
      */
-    compressAstc(quality: number): KtxErrorCode;
+    compressAstc(astcParams?: IKtxAstcParams): KtxErrorCode;
+
+    /**
+     * Decodes ASTC image data back to uncompressed RGBA8.
+     *
+     * Afterward {@link IKtx2Texture.vkFormat} is an `R8G8B8A8` format.
+     *
+     * @returns {@link KtxErrorCode.SUCCESS}, or the libktx error, for example
+     * {@link KtxErrorCode.INVALID_OPERATION} when the texture is not ASTC.
+     */
+    decodeAstc(): KtxErrorCode;
 
     /**
      * Returns the bytes of one image.
@@ -282,6 +345,28 @@ export interface IKtx2Texture {
      * supercompressed, for example with Basis Universal ETC1S or a previous deflate.
      */
     deflateZstd(compressionLevel: number): KtxErrorCode;
+
+    /**
+     * Creates a WebGL texture from this texture's data in the WebGL context
+     * passed to {@link IKtx2Factory.initializeAsync} as
+     * `preinitializedWebGLContext`.
+     *
+     * Upload uncompressed or block-compressed data, for example after
+     * {@link IKtx2Texture.transcodeBasis} or {@link IKtx2Texture.compressAstc}.
+     * The GPU must support the format. Check
+     * {@link IKtxUploadResult.error}: `0` (`gl.NO_ERROR`) means success.
+     *
+     * The texture is created with libktx's default filters. A texture with
+     * one mip level needs `TEXTURE_MIN_FILTER` set to `LINEAR` (or mipmaps)
+     * before it can be sampled.
+     *
+     * @throws {Error} When no WebGL context was passed to
+     * {@link IKtx2Factory.initializeAsync}, or while
+     * {@link IKtx2Texture.needsTranscoding} is `true`.
+     * @returns The upload result containing the error code, created WebGL texture
+     * object, and texture target.
+     */
+    glUpload(): IKtxUploadResult;
 
     /**
      * Releases the native texture.
