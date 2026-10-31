@@ -7,8 +7,9 @@
 <body>
     <h1>ris-ktx2 browser example</h1>
     <p id="info">Encoding...</p>
-    <canvas id="original" title="Original PNG"></canvas>
-    <canvas id="decoded" title="Encoded to KTX2, transcoded to a GPU format, drawn with WebGL2"></canvas>
+    <figure><canvas id="original" title="Original PNG"></canvas><figcaption>Original PNG</figcaption></figure>
+    <figure><canvas id="basis" title="Basis Universal KTX2, transcoded and uploaded with glUpload"></canvas><figcaption id="basis-info"></figcaption></figure>
+    <figure><canvas id="astc" title="ASTC 4x4, uploaded with glUpload"></canvas><figcaption id="astc-info"></figcaption></figure>
     <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
