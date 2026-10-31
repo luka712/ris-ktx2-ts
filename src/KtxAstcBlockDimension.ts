@@ -1,7 +1,13 @@
+import type {IKtx2Texture} from "./IKtx2Texture";
+
 /**
  * ASTC block dimensions supported by the KTX2 format.
  *
  * Includes all 2D and 3D ASTC block dimensions.
+ *
+ * Only the 2D dimensions are supported for now: {@link IKtx2Texture.compressAstc}
+ * works on 2D textures, and the 3D dimensions (for example `D3x3x3`) are
+ * reserved for 3D texture support in a future release.
  */
 export enum KtxAstcBlockDimension {
     // 2D formats

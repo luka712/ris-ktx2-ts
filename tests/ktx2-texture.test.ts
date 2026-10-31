@@ -1,7 +1,7 @@
 import {describe, it, expect, vi} from "vitest";
 import {Ktx2Texture} from "../src/Ktx2Texture";
 import {
-    AstcQualityLevel,
+    KtxAstcQualityLevel,
     KtxAstcBlockDimension,
     KtxAstcEncoderMode,
     KtxErrorCode,
@@ -399,7 +399,7 @@ describe("Ktx2Texture", () => {
             const texture = createTexture();
 
             expect(() => texture.transcodeBasis(
-                KtxTranscodeFormat.KTX_TTF_ETC1_RGB,
+                KtxTranscodeFormat.ETC1_RGB,
                 KtxTranscodeFlags.NONE,
             )).toThrow(/Unsupported transcodeFormat/);
         });
@@ -573,7 +573,7 @@ describe("Ktx2Texture", () => {
             texture.compressAstc({
                 blockDimension: KtxAstcBlockDimension.D6x6,
                 mode: KtxAstcEncoderMode.LDR,
-                qualityLevel: AstcQualityLevel.EXHAUSTIVE,
+                qualityLevel: KtxAstcQualityLevel.EXHAUSTIVE,
                 normalMap: true,
                 threadCount: 4,
                 inputSwizzle: ["r", "r", "r", "g"],
@@ -590,7 +590,7 @@ describe("Ktx2Texture", () => {
             expect(params.verbose).toBe(true);
         });
 
-        it.each(Object.values(AstcQualityLevel))("maps quality %s by name", (quality) => {
+        it.each(Object.values(KtxAstcQualityLevel))("maps quality %s by name", (quality) => {
             const native = createMockKtxTexture();
             createTexture(native).compressAstc({qualityLevel: quality});
             const params = native.compressAstc.mock.calls[0][0] as AstcParams;
@@ -626,7 +626,7 @@ describe("Ktx2Texture", () => {
             expect(() => texture.compressAstc({inputSwizzle: ["r", "g", "x", "a"]})).toThrow(/Invalid inputSwizzle/);
             expect(() => texture.compressAstc({blockDimension: 99 as KtxAstcBlockDimension})).toThrow(/Unsupported blockDimension/);
             expect(() => texture.compressAstc({mode: 7 as KtxAstcEncoderMode})).toThrow(/Unsupported mode/);
-            expect(() => texture.compressAstc({qualityLevel: "BEST" as AstcQualityLevel})).toThrow(/Unsupported qualityLevel/);
+            expect(() => texture.compressAstc({qualityLevel: "BEST" as KtxAstcQualityLevel})).toThrow(/Unsupported qualityLevel/);
             expect(native.compressAstc).not.toHaveBeenCalled();
         });
 

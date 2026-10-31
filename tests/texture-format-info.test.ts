@@ -133,7 +133,7 @@ describe("public enumerations", () => {
         expect(KtxTranscodeFlags.TRANSCODE_ALPHA_DATA_TO_OPAQUE_FORMATS).toBe(4);
         expect(KtxTranscodeFlags.HIGH_QUALITY).toBe(32);
         expect(KtxTranscodeFlags.HIGH_QUALITY | KtxTranscodeFlags.PVRTC_DECODE_TO_NEXT_POW2).toBe(34);
-        expect(KtxTranscodeFormat.KTX_TTF_ETC1_RGB).toBe(0);
+        expect(KtxTranscodeFormat.ETC1_RGB).toBe(0);
         expect(KtxTranscodeFormat.BC7_RGBA).toBe(6);
         expect(KtxTranscodeFormat.RGBA32).toBe(13);
         expect(KtxTranscodeFormat.BC1_OR_3).toBe(23);

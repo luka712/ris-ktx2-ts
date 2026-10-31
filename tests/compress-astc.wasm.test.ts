@@ -4,10 +4,12 @@ import {fileURLToPath} from "node:url";
 import {dirname, resolve} from "node:path";
 import {beforeAll, describe, expect, it} from "vitest";
 import {
-    AstcQualityLevel,
+    KtxAstcQualityLevel,
     Ktx2Factory,
     KtxAstcBlockDimension,
     KtxErrorCode,
+    KtxSupercompressionScheme,
+    KtxDFTransfer,
     VkFormat,
 } from "../src";
 
@@ -50,7 +52,7 @@ describe("compressAstc with the real libktx wasm", () => {
         const texture = factory.create({baseWidth: 64, baseHeight: 64});
         expect(texture.setImageFromMemory(0, 0, 0, gradient(64, 64))).toBe(KtxErrorCode.SUCCESS);
 
-        const code = texture.compressAstc({blockDimension: dimension, qualityLevel: AstcQualityLevel.FASTEST});
+        const code = texture.compressAstc({blockDimension: dimension, qualityLevel: KtxAstcQualityLevel.FASTEST});
 
         expect(code).toBe(KtxErrorCode.SUCCESS);
         expect(texture.vkFormat).toBe(expectedFormat);
@@ -82,7 +84,7 @@ describe("compressAstc with the real libktx wasm", () => {
     it("returns INVALID_OPERATION when the texture is already ASTC", () => {
         const texture = factory.create({baseWidth: 16, baseHeight: 16});
         texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
-        texture.compressAstc({qualityLevel: AstcQualityLevel.FASTEST});
+        texture.compressAstc({qualityLevel: KtxAstcQualityLevel.FASTEST});
         expect(texture.compressAstc()).toBe(KtxErrorCode.INVALID_OPERATION);
         texture.delete();
     });
@@ -90,11 +92,65 @@ describe("compressAstc with the real libktx wasm", () => {
     it("decodeAstc turns ASTC back into RGBA8", () => {
         const texture = factory.create({baseWidth: 16, baseHeight: 16});
         texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
-        texture.compressAstc({qualityLevel: AstcQualityLevel.FASTEST});
+        texture.compressAstc({qualityLevel: KtxAstcQualityLevel.FASTEST});
         const code = texture.decodeAstc();
         expect(code).toBe(KtxErrorCode.SUCCESS);
         expect([VkFormat.R8G8B8A8_SRGB, VkFormat.R8G8B8A8_UNORM]).toContain(texture.vkFormat);
         expect(texture.dataSize).toBe(16 * 16 * 4);
         texture.delete();
+    });
+});
+
+describe("supercompressionScheme with the real libktx wasm", () => {
+    const factory = new Ktx2Factory();
+
+    beforeAll(async () => {
+        (Ktx2Factory as unknown as {_ktxLib?: unknown})._ktxLib = await loadLibKtx();
+    });
+
+    function filled() {
+        const texture = factory.create({baseWidth: 16, baseHeight: 16});
+        texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
+        return texture;
+    }
+
+    it("is NONE for a new texture", () => {
+        expect(filled().supercompressionScheme).toBe(KtxSupercompressionScheme.NONE);
+    });
+
+    it("tracks deflate and basis compression and survives a write/read round trip", () => {
+        const cases: Array<[(t: ReturnType<typeof filled>) => KtxErrorCode, KtxSupercompressionScheme]> = [
+            [t => t.deflateZstd(5), KtxSupercompressionScheme.ZSTD],
+            [t => t.deflateZlib(5), KtxSupercompressionScheme.ZLIB],
+            [t => t.compressBasis({}), KtxSupercompressionScheme.BASIS_LZ],
+            [t => t.compressBasis({uastc: true}), KtxSupercompressionScheme.NONE],
+        ];
+        for (const [run, expected] of cases) {
+            const texture = filled();
+            expect(run(texture)).toBe(KtxErrorCode.SUCCESS);
+            expect(texture.supercompressionScheme).toBe(expected);
+            expect(texture.createCopy().supercompressionScheme).toBe(expected);
+            const bytes = texture.writeToMemory();
+            expect(factory.createFromBuffer(bytes).supercompressionScheme).toBe(expected);
+        }
+    });
+});
+
+describe("oetf with the real libktx wasm", () => {
+    const factory = new Ktx2Factory();
+
+    beforeAll(async () => {
+        (Ktx2Factory as unknown as {_ktxLib?: unknown})._ktxLib = await loadLibKtx();
+    });
+
+    it.each([
+        [VkFormat.R8G8B8A8_SRGB, KtxDFTransfer.SRGB],
+        [VkFormat.R8G8B8A8_UNORM, KtxDFTransfer.LINEAR],
+    ])("reads the transfer function for vkFormat %s", (vkFormat, expected) => {
+        const texture = factory.create({baseWidth: 16, baseHeight: 16, vkFormat});
+        expect(texture.oetf).toBe(expected);
+        expect(texture.createCopy().oetf).toBe(expected);
+        texture.setImageFromMemory(0, 0, 0, gradient(16, 16));
+        expect(factory.createFromBuffer(texture.writeToMemory()).oetf).toBe(expected);
     });
 });

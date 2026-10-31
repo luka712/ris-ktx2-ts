@@ -1,6 +1,6 @@
 import type { KtxAstcBlockDimension } from "./KtxAstcBlockDimension";
 import type { KtxAstcEncoderMode } from "./KtxAstcEncoderMode";
-import type { AstcQualityLevel } from "./AstcQualityLevels";
+import type { KtxAstcQualityLevel } from "./KtxAstcQualityLevel";
 import type { IKtx2Texture } from "./IKtx2Texture";
 
 /**
@@ -16,6 +16,8 @@ export interface IKtxAstcParams {
      *
      * Smaller blocks generally provide better image quality at the cost
      * of a larger compressed texture size.
+     *
+     * Use a 2D dimension. The 3D dimensions are not supported yet.
      *
      * @defaultValue {@link KtxAstcBlockDimension.D4x4}
      */
@@ -37,9 +39,9 @@ export interface IKtxAstcParams {
      * Higher quality levels generally improve compression quality
      * at the cost of increased encoding time.
      *
-     * @defaultValue {@link AstcQualityLevel.MEDIUM}
+     * @defaultValue {@link KtxAstcQualityLevel.MEDIUM}
      */
-    qualityLevel?: AstcQualityLevel;
+    qualityLevel?: KtxAstcQualityLevel;
 
     /**
      * Tune the encoder for normal maps.

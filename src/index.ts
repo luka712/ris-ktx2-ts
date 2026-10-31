@@ -1,7 +1,7 @@
 // src/index.ts
 export * from "./Ktx2Factory";
 export * from "./IKtx2Factory";
-export * from "./AstcQualityLevels";
+export * from "./KtxAstcQualityLevel";
 export * from "./IKtx2Texture";
 export * from "./IKtxAstcParams";
 export * from "./IKtxBasisParams";
@@ -10,9 +10,11 @@ export * from "./KtxAstcBlockDimension";
 export * from "./KtxAstcEncoderMode";
 export * from "./KtxCreateStorage";
 export * from "./KtxErrorCode";
+export * from "./KtxSupercompressionScheme";
+export * from "./KtxDFTransfer";
 export * from "./KtxTranscodeFlags";
 export * from "./KtxTranscodeFormat";
 export * from "./KtxUastcFlags";
 export * from "./TextureFormatInfo";
-export * from "./UploadResult";
+export * from "./IKtxUploadResult";
 export * from "./VkFormat";
