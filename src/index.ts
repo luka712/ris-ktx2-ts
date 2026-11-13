@@ -18,3 +18,4 @@ export * from "./KtxUastcFlags";
 export * from "./TextureFormatInfo";
 export * from "./IKtxUploadResult";
 export * from "./VkFormat";
+export * from "./WebGPUTextureLoader";
