@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>ris-ktx2 browser example</title>
+    <title>ris-ktx2 WebGL example</title>
 </head>
 <body>
-    <h1>ris-ktx2 browser example</h1>
+    <h1>ris-ktx2 WebGL example</h1>
     <p id="info">Encoding...</p>
     <figure><canvas id="original" title="Original PNG"></canvas><figcaption>Original PNG</figcaption></figure>
     <figure><canvas id="basis" title="Basis Universal KTX2, transcoded and uploaded with glUpload"></canvas><figcaption id="basis-info"></figcaption></figure>
-    <figure><canvas id="astc" title="ASTC 4x4, uploaded with glUpload"></canvas><figcaption id="astc-info"></figcaption></figure>
+    <figure><canvas id="astc" title="ASTC 8x8, uploaded with glUpload"></canvas><figcaption id="astc-info"></figcaption></figure>
+    <figure><canvas id="array" title="2D texture array, uploaded with glUpload"></canvas><figcaption id="array-info"></figcaption></figure>
     <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

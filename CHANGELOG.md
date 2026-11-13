@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0
+
+### Breaking changes
+
+- KTX1 files are no longer loaded. Only KTX2 is supported.
+- `numLevels` of a loaded texture is the raw KTX2 header value, so it can be `0`.
+
+### Added
+
+- WebGPU upload with `gpuUpload`, for 2D textures and 2D texture arrays. Pass your device with `initializeAsync({ preinitializedGPUDevice: device })`.
+- `numLayers` texture property, and `numLayers` in `create` for 2D texture arrays.
+- Separate WebGL and WebGPU examples.
+
 ## 0.2.0
 
 ### Breaking changes

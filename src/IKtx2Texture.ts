@@ -11,6 +11,7 @@ import type {IKtx2Factory} from "./IKtx2Factory";
 import type {IKtxUploadResult} from "./IKtxUploadResult";
 import type {KtxSupercompressionScheme} from "./KtxSupercompressionScheme";
 import type {KtxDFTransfer} from "./KtxDFTransfer";
+import type {GPUUploadParams} from "./GPUUploadParams";
 
 /**
  * A KTX2 texture backed by a native libktx texture.
@@ -24,10 +25,6 @@ import type {KtxDFTransfer} from "./KtxDFTransfer";
  *
  * The properties read the native texture each time, so they reflect
  * compression, transcoding, and deflate.
- *
- * KTX1 files can be loaded, inspected, and read with
- * {@link IKtx2Texture.getImage}. Encoding, transcoding, and deflate need KTX2
- * and return {@link KtxErrorCode.INVALID_OPERATION} for KTX1.
  *
  * @example
  * ```ts
@@ -77,15 +74,17 @@ export interface IKtx2Texture {
      */
     readonly needsTranscoding: boolean;
 
-    /**
-     * Number of mip levels stored in the texture.
-     *
-     * For loaded textures this is read from the KTX2 or KTX1 file header. A
-     * header value of `0`, which asks the loader to generate mipmaps, means
-     * one stored level and is reported as `1`. For created textures it is
-     * {@link IKtxTextureCreateInfo.numLevels}.
-     */
+    /** Number of mip levels stored in the texture.  */
     readonly numLevels: number;
+
+    /**
+     * Number of array layers in the texture.
+     *
+     * For loaded textures this is the KTX2 header `layerCount`, where `0`
+     * means the texture is not an array. Textures from
+     * {@link IKtx2Factory.create} report `1`.
+     */
+    readonly numLayers: number;
 
     /**
      * Vulkan format of the current image data.
@@ -93,8 +92,7 @@ export interface IKtx2Texture {
      * Basis Universal data reports {@link VkFormat.UNDEFINED}. After
      * {@link IKtx2Texture.transcodeBasis} it reports the format of the
      * transcoded data, for example {@link VkFormat.BC7_UNORM_BLOCK}, or the
-     * sRGB variant for sRGB textures. KTX1 textures report
-     * {@link VkFormat.UNDEFINED}.
+     * sRGB variant for sRGB textures.
      */
     readonly vkFormat: VkFormat;
 
@@ -367,6 +365,34 @@ export interface IKtx2Texture {
      * object, and texture target.
      */
     glUpload(): IKtxUploadResult;
+
+    /**
+     * Creates a 2D WebGPU texture with every mip level of this texture, on
+     * the device passed to {@link IKtx2Factory.initializeAsync} as
+     * `preinitializedGPUDevice`.
+     *
+     * Upload uncompressed or block-compressed data, for example after
+     * {@link IKtx2Texture.transcodeBasis} or {@link IKtx2Texture.compressAstc}.
+     * The device must have the compression feature for the format enabled,
+     * for example `texture-compression-bc` for BC7. WebGPU reports a missing
+     * feature as a device validation error, not as a throw.
+     *
+     * @param params - Optional settings, such as the texture usage.
+     * @returns The created `GPUTexture`.
+     * @throws {Error} When no device was passed to
+     * {@link IKtx2Factory.initializeAsync}, while
+     * {@link IKtx2Texture.needsTranscoding} is `true`, when the format has no
+     * WebGPU equivalent, or when a block-compressed texture's size is not a
+     * multiple of its block size.
+     *
+     * @example
+     * ```ts
+     * await factory.initializeAsync({ preinitializedGPUDevice: device });
+     * texture.transcodeBasis(KtxTranscodeFormat.BC7_RGBA, KtxTranscodeFlags.NONE);
+     * const gpuTexture = texture.gpuUpload();
+     * ```
+     */
+    gpuUpload(params?: GPUUploadParams): GPUTexture;
 
     /**
      * Releases the native texture.

@@ -8,7 +8,7 @@ const exampleRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 export default defineConfig({
-    // Lets `vite --config examples/browser/vite.config.ts` work from the repo root.
+    // Lets `vite --config examples/webgpu/vite.config.ts` work from the repo root.
     root: exampleRoot,
     resolve: {
         alias: {

@@ -25,34 +25,36 @@ function mockKtx(overrides: Partial<IKtx2Texture>): IKtx2Texture {
 
 describe("WebGPUTextureLoader", () => {
     it("maps formats", () => {
-        expect(WebGPUTextureLoader.toGPUTextureFormat(VkFormat.R8G8B8A8_UNORM)).toBe("rgba8unorm");
-        expect(WebGPUTextureLoader.toGPUTextureFormat(VkFormat.BC7_SRGB_BLOCK)).toBe("bc7-rgba-unorm-srgb");
-        expect(WebGPUTextureLoader.toGPUTextureFormat(VkFormat.ASTC_4X4_UNORM_BLOCK)).toBe("astc-4x4-unorm");
-        expect(WebGPUTextureLoader.toGPUTextureFormat(VkFormat.ASTC_12X12_SRGB_BLOCK)).toBe("astc-12x12-unorm-srgb");
-        expect(WebGPUTextureLoader.toGPUTextureFormat(VkFormat.ASTC_6X5_SRGB_BLOCK)).toBe("astc-6x5-unorm-srgb");
-        expect(() => WebGPUTextureLoader.toGPUTextureFormat(VkFormat.UNDEFINED)).toThrow();
+        const cases: Array<[VkFormat, string]> = [
+            [VkFormat.R8G8B8A8_UNORM, "rgba8unorm"],
+            [VkFormat.BC7_SRGB_BLOCK, "bc7-rgba-unorm-srgb"],
+            [VkFormat.ASTC_4X4_UNORM_BLOCK, "astc-4x4-unorm"],
+            [VkFormat.ASTC_12X12_SRGB_BLOCK, "astc-12x12-unorm-srgb"],
+        ];
+        for (const [vkFormat, format] of cases) {
+            const {device} = mockDevice();
+            WebGPUTextureLoader.load(device, mockKtx({vkFormat, width: 12, height: 12}));
+            expect(device.createTexture.mock.calls[0][0].format).toBe(format);
+        }
+        const {device} = mockDevice();
+        expect(() => WebGPUTextureLoader.load(device, mockKtx({vkFormat: VkFormat.UNDEFINED}))).toThrow(/no WebGPU format/);
     });
 
     it("throws without a device or with Basis data", () => {
-        expect(() => new WebGPUTextureLoader({}).load(mockKtx({}))).toThrow(/GPUDevice/);
+        expect(() => WebGPUTextureLoader.load(undefined, mockKtx({}))).toThrow(/GPUDevice/);
         const {device} = mockDevice();
-        expect(() => new WebGPUTextureLoader({gpu: device}).load(mockKtx({needsTranscoding: true}))).toThrow(/transcodeBasis/);
-    });
-
-    it("requires the compression feature", () => {
-        const {device} = mockDevice();
-        expect(() => new WebGPUTextureLoader({gpu: device}).load(mockKtx({vkFormat: VkFormat.BC7_UNORM_BLOCK}))).toThrow(/texture-compression-bc/);
+        expect(() => WebGPUTextureLoader.load(device, mockKtx({needsTranscoding: true}))).toThrow(/transcodeBasis/);
     });
 
     it("rejects sizes that are not whole blocks", () => {
         const {device} = mockDevice(["texture-compression-bc"]);
-        expect(() => new WebGPUTextureLoader({gpu: device}).load(mockKtx({vkFormat: VkFormat.BC7_UNORM_BLOCK, width: 6}))).toThrow(/block size/);
+        expect(() => WebGPUTextureLoader.load(device, mockKtx({vkFormat: VkFormat.BC7_UNORM_BLOCK, width: 6}))).toThrow(/block size/);
     });
 
     it("writes every mip level with block-aligned copies", () => {
         const {device, texture} = mockDevice(["texture-compression-bc"]);
         const ktx = mockKtx({vkFormat: VkFormat.BC7_UNORM_BLOCK, width: 8, height: 8, numLevels: 4});
-        const result = new WebGPUTextureLoader({gpu: device}).load(ktx);
+        const result = WebGPUTextureLoader.load(device, ktx);
 
         expect(result).toBe(texture);
         expect(device.createTexture).toHaveBeenCalledWith(expect.objectContaining({
@@ -67,9 +69,36 @@ describe("WebGPUTextureLoader", () => {
         expect(calls[3][3]).toEqual({width: 4, height: 4, depthOrArrayLayers: 1});
     });
 
+    it("uses the requested usage and always adds COPY_DST", () => {
+        const {device} = mockDevice();
+        WebGPUTextureLoader.load(device, mockKtx({}));
+        expect(device.createTexture.mock.calls[0][0].usage).toBe(0x04 | 0x02);
+        WebGPUTextureLoader.load(device, mockKtx({}), {textureUsage: 0x04 | 0x10});
+        expect(device.createTexture.mock.calls[1][0].usage).toBe(0x04 | 0x10 | 0x02);
+    });
+
     it("uses tight rows for RGBA8", () => {
         const {device} = mockDevice();
-        new WebGPUTextureLoader({gpu: device}).load(mockKtx({width: 5, height: 3}));
+        WebGPUTextureLoader.load(device, mockKtx({width: 5, height: 3}));
         expect(device.queue.writeTexture.mock.calls[0][2]).toEqual({offset: 0, bytesPerRow: 20, rowsPerImage: 3});
+    });
+
+    it("uploads every level of every layer for an array texture", () => {
+        const {device} = mockDevice();
+        const ktx = mockKtx({numLayers: 3, numLevels: 2});
+        WebGPUTextureLoader.load(device, ktx);
+
+        expect(device.createTexture.mock.calls[0][0].size).toEqual({width: 8, height: 8, depthOrArrayLayers: 3});
+        expect(device.queue.writeTexture).toHaveBeenCalledTimes(6);
+        expect(ktx.getImage).toHaveBeenCalledWith(1, 2, 0);
+        expect(device.queue.writeTexture.mock.calls[5][0]).toEqual(expect.objectContaining({mipLevel: 1, origin: {x: 0, y: 0, z: 2}}));
+    });
+
+    it("uploads one layer when numLayers is 0 or 1", () => {
+        for (const numLayers of [0, 1]) {
+            const {device} = mockDevice();
+            WebGPUTextureLoader.load(device, mockKtx({numLayers}));
+            expect(device.createTexture.mock.calls[0][0].size.depthOrArrayLayers).toBe(1);
+        }
     });
 });

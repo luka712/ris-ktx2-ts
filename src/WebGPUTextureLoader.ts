@@ -1,33 +1,13 @@
-import type {IKtx2Texture} from "./IKtx2Texture";
-import {TextureFormatInfo} from "./TextureFormatInfo";
-import {VkFormat} from "./VkFormat";
+import type { IKtx2Texture } from "./IKtx2Texture";
+import { TextureFormatInfo } from "./TextureFormatInfo";
+import { VkFormat } from "./VkFormat";
+import type { GPUUploadParams } from "./GPUUploadParams";
 
 /** `GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST`. */
 const DEFAULT_USAGE = 0x04 | 0x02;
 
-/**
- * Parameters for {@link WebGPUTextureLoader}.
- */
-export interface IWebGPUTextureLoaderParams {
-
-    /**
-     * WebGPU device that creates the textures.
-     *
-     * Request the features your formats need when you create the device:
-     * `texture-compression-bc` for BC3 and BC7, `texture-compression-etc2`
-     * for ETC2, and `texture-compression-astc` for ASTC.
-     */
-    gpu?: GPUDevice | null;
-
-    /**
-     * Usage flags for created textures.
-     *
-     * Defaults to `GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST`.
-     * `COPY_DST` is always added, because the image data is written with
-     * `GPUQueue.writeTexture`.
-     */
-    usage?: GPUTextureUsageFlags;
-}
+/** `GPUTextureUsage.COPY_DST`, needed by `GPUQueue.writeTexture`. */
+const COPY_DST = 0x02;
 
 /**
  * Creates WebGPU textures from {@link IKtx2Texture} data.
@@ -39,60 +19,108 @@ export interface IWebGPUTextureLoaderParams {
  * Supported formats: `R8G8B8A8_UNORM`/`_SRGB`, `B8G8R8A8_UNORM`/`_SRGB`,
  * BC3, BC7, ETC2 RGBA, and every 2D ASTC block size (UNORM and sRGB).
  *
+ * Request the features your formats need when you create the device:
+ * `texture-compression-bc` for BC3 and BC7, `texture-compression-etc2`
+ * for ETC2, and `texture-compression-astc` for ASTC.
+ *
  * @example
  * ```ts
- * const loader = new WebGPUTextureLoader({ gpu: device });
  * const texture = await factory.loadAsync("/textures/example.ktx2");
  * texture.transcodeBasis(KtxTranscodeFormat.BC7_RGBA, KtxTranscodeFlags.NONE);
- * const gpuTexture = loader.load(texture);
+ * const gpuTexture = WebGPUTextureLoader.load(device, texture);
  * texture.delete();
  * ```
  */
 export class WebGPUTextureLoader {
 
-    private readonly _gpu?: GPUDevice | null;
-    private readonly _usage: GPUTextureUsageFlags;
+    /** WebGPU format for each supported `VkFormat`. */
+    private static readonly _formatMap: Partial<Record<VkFormat, GPUTextureFormat>> = {
+        [VkFormat.R8G8B8A8_UNORM]: "rgba8unorm",
+        [VkFormat.R8G8B8A8_SRGB]: "rgba8unorm-srgb",
+        [VkFormat.B8G8R8A8_UNORM]: "bgra8unorm",
+        [VkFormat.B8G8R8A8_SRGB]: "bgra8unorm-srgb",
+        [VkFormat.BC3_UNORM_BLOCK]: "bc3-rgba-unorm",
+        [VkFormat.BC3_SRGB_BLOCK]: "bc3-rgba-unorm-srgb",
+        [VkFormat.BC7_UNORM_BLOCK]: "bc7-rgba-unorm",
+        [VkFormat.BC7_SRGB_BLOCK]: "bc7-rgba-unorm-srgb",
+        [VkFormat.ETC2_R8G8B8A8_UNORM_BLOCK]: "etc2-rgba8unorm",
+        [VkFormat.ETC2_R8G8B8A8_SRGB_BLOCK]: "etc2-rgba8unorm-srgb",
+        [VkFormat.ASTC_4X4_UNORM_BLOCK]: "astc-4x4-unorm",
+        [VkFormat.ASTC_4X4_SRGB_BLOCK]: "astc-4x4-unorm-srgb",
+        [VkFormat.ASTC_5X4_UNORM_BLOCK]: "astc-5x4-unorm",
+        [VkFormat.ASTC_5X4_SRGB_BLOCK]: "astc-5x4-unorm-srgb",
+        [VkFormat.ASTC_5X5_UNORM_BLOCK]: "astc-5x5-unorm",
+        [VkFormat.ASTC_5X5_SRGB_BLOCK]: "astc-5x5-unorm-srgb",
+        [VkFormat.ASTC_6X5_UNORM_BLOCK]: "astc-6x5-unorm",
+        [VkFormat.ASTC_6X5_SRGB_BLOCK]: "astc-6x5-unorm-srgb",
+        [VkFormat.ASTC_6X6_UNORM_BLOCK]: "astc-6x6-unorm",
+        [VkFormat.ASTC_6X6_SRGB_BLOCK]: "astc-6x6-unorm-srgb",
+        [VkFormat.ASTC_8X5_UNORM_BLOCK]: "astc-8x5-unorm",
+        [VkFormat.ASTC_8X5_SRGB_BLOCK]: "astc-8x5-unorm-srgb",
+        [VkFormat.ASTC_8X6_UNORM_BLOCK]: "astc-8x6-unorm",
+        [VkFormat.ASTC_8X6_SRGB_BLOCK]: "astc-8x6-unorm-srgb",
+        [VkFormat.ASTC_8X8_UNORM_BLOCK]: "astc-8x8-unorm",
+        [VkFormat.ASTC_8X8_SRGB_BLOCK]: "astc-8x8-unorm-srgb",
+        [VkFormat.ASTC_10X5_UNORM_BLOCK]: "astc-10x5-unorm",
+        [VkFormat.ASTC_10X5_SRGB_BLOCK]: "astc-10x5-unorm-srgb",
+        [VkFormat.ASTC_10X6_UNORM_BLOCK]: "astc-10x6-unorm",
+        [VkFormat.ASTC_10X6_SRGB_BLOCK]: "astc-10x6-unorm-srgb",
+        [VkFormat.ASTC_10X8_UNORM_BLOCK]: "astc-10x8-unorm",
+        [VkFormat.ASTC_10X8_SRGB_BLOCK]: "astc-10x8-unorm-srgb",
+        [VkFormat.ASTC_10X10_UNORM_BLOCK]: "astc-10x10-unorm",
+        [VkFormat.ASTC_10X10_SRGB_BLOCK]: "astc-10x10-unorm-srgb",
+        [VkFormat.ASTC_12X10_UNORM_BLOCK]: "astc-12x10-unorm",
+        [VkFormat.ASTC_12X10_SRGB_BLOCK]: "astc-12x10-unorm-srgb",
+        [VkFormat.ASTC_12X12_UNORM_BLOCK]: "astc-12x12-unorm",
+        [VkFormat.ASTC_12X12_SRGB_BLOCK]: "astc-12x12-unorm-srgb",
+    };
 
-    /**
-     * @param params - The device to create textures with, and optional usage flags.
-     */
-    public constructor(params: IWebGPUTextureLoaderParams) {
-        this._gpu = params.gpu;
-        this._usage = (params.usage ?? DEFAULT_USAGE) | 0x02;
+    private constructor() {
     }
 
     /**
      * Creates a 2D WebGPU texture and writes every mip level of `ktx` into it.
+     * When {@link IKtx2Texture.numLayers} is more than 1, every array layer is
+     * written too, and the texture has that many `depthOrArrayLayers`.
      *
+     * @param gpu - Device that creates the texture.
      * @param ktx - Texture to upload. It must not need transcoding.
+     * @param params - Optional upload settings, such as the texture usage.
      * @returns The new texture. Its `mipLevelCount` is {@link IKtx2Texture.numLevels}.
      * @throws {Error} When no device was passed, `ktx` holds Basis Universal
-     * data, its format has no WebGPU equivalent here, the device lacks the
-     * compression feature for the format, or the size of a block-compressed
-     * texture is not a multiple of its block size.
+     * data, its format has no WebGPU equivalent here, or the size of a
+     * block-compressed texture is not a multiple of its block size.
      */
-    public load(ktx: IKtx2Texture): GPUTexture {
-        return this._loadTexture2D(ktx);
+    public static load(gpu: GPUDevice | null | undefined, ktx: IKtx2Texture, params: GPUUploadParams = {}): GPUTexture {
+        const device = WebGPUTextureLoader._validate(gpu, ktx);
+        return ktx.numLayers > 1
+            ? WebGPUTextureLoader._loadTexture2DArray(device, ktx, params)
+            : WebGPUTextureLoader._loadTexture2D(device, ktx, params);
     }
 
-    private _validate(ktx: IKtx2Texture): GPUDevice {
-        if (!this._gpu) {
-            throw new Error("WebGPUTextureLoader: no GPUDevice. Pass gpu to the constructor.");
+    private static _validate(gpu: GPUDevice | null | undefined, ktx: IKtx2Texture): GPUDevice {
+        if (!gpu) {
+            throw new Error("WebGPUTextureLoader: no GPUDevice.");
         }
         if (ktx.needsTranscoding) {
             throw new Error("WebGPUTextureLoader: the texture holds Basis Universal data. Call transcodeBasis first.");
         }
-        return this._gpu;
+        return gpu;
     }
 
-    private _loadTexture2D(ktx: IKtx2Texture): GPUTexture {
-        const gpu = this._validate(ktx);
-        const format = WebGPUTextureLoader.toGPUTextureFormat(ktx.vkFormat);
+    /** Uploads a texture with a single layer. */
+    private static _loadTexture2D(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams): GPUTexture {
+        return WebGPUTextureLoader._loadLayers(gpu, ktx, params, 1);
+    }
 
-        const feature = requiredFeature(format);
-        if (feature && !gpu.features.has(feature)) {
-            throw new Error(`WebGPUTextureLoader: ${format} needs the "${feature}" device feature.`);
-        }
+    /** Uploads every array layer of `ktx`, one WebGPU array layer each. */
+    private static _loadTexture2DArray(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams): GPUTexture {
+        return WebGPUTextureLoader._loadLayers(gpu, ktx, params, ktx.numLayers);
+    }
+
+    /** Creates a 2D texture with `layerCount` layers and writes every level of every layer. */
+    private static _loadLayers(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams, layerCount: number): GPUTexture {
+        const format = WebGPUTextureLoader._toGPUTextureFormat(ktx.vkFormat);
 
         const info = TextureFormatInfo.fromVkFormat(ktx.vkFormat);
         if (ktx.width % info.blockWidth !== 0 || ktx.height % info.blockHeight !== 0) {
@@ -105,32 +133,34 @@ export class WebGPUTextureLoader {
         const mipLevelCount = Math.max(1, ktx.numLevels);
         const texture = gpu.createTexture({
             label: ktx.filePath,
-            size: {width: ktx.width, height: ktx.height, depthOrArrayLayers: 1},
+            size: { width: ktx.width, height: ktx.height, depthOrArrayLayers: layerCount },
             format,
             mipLevelCount,
-            usage: this._usage,
+            usage: (params.textureUsage ?? DEFAULT_USAGE) | COPY_DST,
         });
 
-        for (let level = 0; level < mipLevelCount; level++) {
-            const width = Math.max(1, ktx.width >> level);
-            const height = Math.max(1, ktx.height >> level);
-            const data = ktx.getImage(level, 0, 0);
+        for (let layer = 0; layer < layerCount; layer++) {
+            for (let level = 0; level < mipLevelCount; level++) {
+                const width = Math.max(1, ktx.width >> level);
+                const height = Math.max(1, ktx.height >> level);
+                const data = ktx.getImage(level, layer, 0);
 
-            gpu.queue.writeTexture(
-                {texture, mipLevel: level},
-                data as Uint8Array<ArrayBuffer>,
-                {
-                    offset: 0,
-                    bytesPerRow: info.getBytesPerRow(width),
-                    rowsPerImage: info.getBlocksPerColumn(height),
-                },
-                {
-                    // Block-compressed copies cover whole blocks.
-                    width: info.getBlocksPerRow(width) * info.blockWidth,
-                    height: info.getBlocksPerColumn(height) * info.blockHeight,
-                    depthOrArrayLayers: 1,
-                },
-            );
+                gpu.queue.writeTexture(
+                    { texture, mipLevel: level, origin: { x: 0, y: 0, z: layer } },
+                    data as Uint8Array<ArrayBuffer>,
+                    {
+                        offset: 0,
+                        bytesPerRow: info.getBytesPerRow(width),
+                        rowsPerImage: info.getBlocksPerColumn(height),
+                    },
+                    {
+                        // Block-compressed copies cover whole blocks.
+                        width: info.getBlocksPerRow(width) * info.blockWidth,
+                        height: info.getBlocksPerColumn(height) * info.blockHeight,
+                        depthOrArrayLayers: 1,
+                    },
+                );
+            }
         }
 
         return texture;
@@ -143,38 +173,12 @@ export class WebGPUTextureLoader {
      * @returns The matching `GPUTextureFormat`.
      * @throws {Error} When the format is not supported by this loader.
      */
-    public static toGPUTextureFormat(vkFormat: VkFormat): GPUTextureFormat {
-        switch (vkFormat) {
-            case VkFormat.R8G8B8A8_UNORM: return "rgba8unorm";
-            case VkFormat.R8G8B8A8_SRGB: return "rgba8unorm-srgb";
-            case VkFormat.B8G8R8A8_UNORM: return "bgra8unorm";
-            case VkFormat.B8G8R8A8_SRGB: return "bgra8unorm-srgb";
-            case VkFormat.BC3_UNORM_BLOCK: return "bc3-rgba-unorm";
-            case VkFormat.BC3_SRGB_BLOCK: return "bc3-rgba-unorm-srgb";
-            case VkFormat.BC7_UNORM_BLOCK: return "bc7-rgba-unorm";
-            case VkFormat.BC7_SRGB_BLOCK: return "bc7-rgba-unorm-srgb";
-            case VkFormat.ETC2_R8G8B8A8_UNORM_BLOCK: return "etc2-rgba8unorm";
-            case VkFormat.ETC2_R8G8B8A8_SRGB_BLOCK: return "etc2-rgba8unorm-srgb";
+    private static _toGPUTextureFormat(vkFormat: VkFormat): GPUTextureFormat {
+        const format = WebGPUTextureLoader._formatMap[vkFormat];
+        if (!format) {
+            throw new Error(`WebGPUTextureLoader: VkFormat ${VkFormat[vkFormat] ?? vkFormat} has no WebGPU format.`);
         }
-        if (vkFormat >= VkFormat.ASTC_4X4_UNORM_BLOCK && vkFormat <= VkFormat.ASTC_12X12_SRGB_BLOCK) {
-            const block = ASTC_BLOCKS[(vkFormat - VkFormat.ASTC_4X4_UNORM_BLOCK) >> 1];
-            const srgb = (vkFormat - VkFormat.ASTC_4X4_UNORM_BLOCK) % 2 === 1;
-            return `astc-${block}-${srgb ? "unorm-srgb" : "unorm"}` as GPUTextureFormat;
-        }
-        throw new Error(`WebGPUTextureLoader: VkFormat ${VkFormat[vkFormat] ?? vkFormat} has no WebGPU format.`);
+        return format;
     }
 }
 
-/** 2D ASTC block sizes, in `VkFormat` order. */
-const ASTC_BLOCKS = [
-    "4x4", "5x4", "5x5", "6x5", "6x6", "8x5", "8x6",
-    "8x8", "10x5", "10x6", "10x8", "10x10", "12x10", "12x12",
-] as const;
-
-/** Device feature a compressed format needs, or `undefined` for uncompressed formats. */
-function requiredFeature(format: GPUTextureFormat): GPUFeatureName | undefined {
-    if (format.startsWith("bc")) return "texture-compression-bc";
-    if (format.startsWith("etc2") || format.startsWith("eac")) return "texture-compression-etc2";
-    if (format.startsWith("astc")) return "texture-compression-astc";
-    return undefined;
-}

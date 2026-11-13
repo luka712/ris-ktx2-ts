@@ -1,7 +1,7 @@
 import type {VkFormat} from "./VkFormat";
 
 /**
- * Parameters for {@link IKtx2Factory.create}, which creates an empty 2D texture.
+ * Parameters for {@link IKtx2Factory.create}, which creates an empty 2D texture or 2D texture array.
  */
 export interface IKtxTextureCreateInfo {
 
@@ -30,4 +30,13 @@ export interface IKtxTextureCreateInfo {
      * @defaultValue 1
      */
     numLevels?: number;
+
+    /**
+     * Number of array layers. More than `1` creates a 2D texture array.
+     *
+     * Fill each layer with {@link IKtx2Texture.setImageFromMemory}.
+     *
+     * @defaultValue 1
+     */
+    numLayers?: number;
 }

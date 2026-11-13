@@ -6,7 +6,6 @@ import {VkFormat} from "./VkFormat";
 import {Mapper} from "./Mapper";
 import type {IKtx2Factory} from "./IKtx2Factory";
 import {Ktx2Texture} from "./Ktx2Texture";
-import {detectKtxContainer, toUint8Array} from "./KtxContainer";
 
 /**
  * Parameters used to initialize the KTX2 factory.
@@ -24,6 +23,15 @@ export interface IKtx2FactoryInitializeParams {
      * WebGL context, depending on the implementation.
      */
     preinitializedWebGLContext?: WebGL2RenderingContext | WebGLRenderingContext | null;
+
+    /**
+     * WebGPU device used by {@link IKtx2Texture.gpuUpload}.
+     *
+     * Enable the compression features your formats need when you request
+     * the device, for example `texture-compression-bc`,
+     * `texture-compression-etc2`, or `texture-compression-astc`.
+     */
+    preinitializedGPUDevice?: GPUDevice | null;
 }
 
 /**
@@ -86,6 +94,11 @@ export class Ktx2Factory implements IKtx2Factory {
             });
             GL.makeContextCurrent(handle);
         }
+
+        const gpuDevice = params?.preinitializedGPUDevice;
+        if (gpuDevice) {
+            Ktx2Texture.gpuDevice = gpuDevice;
+        }
     }
 
     /** @inheritDoc */
@@ -120,9 +133,9 @@ export class Ktx2Factory implements IKtx2Factory {
             ktxCreateInfo.baseDepth = 1;
             ktxCreateInfo.numDimensions = 2;
             ktxCreateInfo.numLevels = createInfo.numLevels ?? 1;
-            ktxCreateInfo.numLayers = 1;
+            ktxCreateInfo.numLayers = createInfo.numLayers ?? 1;
             ktxCreateInfo.numFaces = 1;
-            ktxCreateInfo.isArray = false;
+            ktxCreateInfo.isArray = ktxCreateInfo.numLayers > 1;
             ktxCreateInfo.generateMipmaps = false;
 
             const ktxStorage = Mapper.mapStorage(ktxLib, storage ?? KtxCreateStorage.ALLOC_STORAGE);
@@ -138,7 +151,7 @@ export class Ktx2Factory implements IKtx2Factory {
     /** @inheritDoc */
     public createFromBuffer(buffer: ArrayBufferView<ArrayBufferLike>): IKtx2Texture {
         Ktx2Factory._requireKtxLib();
-        return Ktx2Factory._createFromBytes(toUint8Array(buffer));
+        return Ktx2Factory._createFromBytes(new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength));
     }
 
     /** Returns the loaded libktx module, or throws when `initializeAsync` has not finished. */
@@ -149,14 +162,9 @@ export class Ktx2Factory implements IKtx2Factory {
         return Ktx2Factory._ktxLib;
     }
 
-    /** Validates KTX or KTX2 file bytes and wraps them in a texture. */
+    /** Loads KTX2 file bytes with libktx and wraps them in a texture. */
     private static _createFromBytes(bytes: Uint8Array, filePath?: string): IKtx2Texture {
         const ktxLib = Ktx2Factory._requireKtxLib();
-        const source = filePath ? `"${filePath}"` : "The buffer";
-
-        if (!detectKtxContainer(bytes)) {
-            throw new Error(`${source} is not a KTX or KTX2 file: the file identifier is missing.`);
-        }
 
         const ktxTexture = new ktxLib.texture(bytes);
 
@@ -164,7 +172,7 @@ export class Ktx2Factory implements IKtx2Factory {
         // empty texture.
         if (!ktxTexture.baseWidth) {
             ktxTexture.delete?.();
-            throw new Error(`libktx could not read ${filePath ? source : "the buffer"}. The file may be truncated or corrupt.`);
+            throw new Error(`libktx could not read ${filePath ? `"${filePath}"` : "the buffer"}. It may not be a valid KTX2 file.`);
         }
 
         return new Ktx2Texture(ktxLib, ktxTexture, bytes, filePath);

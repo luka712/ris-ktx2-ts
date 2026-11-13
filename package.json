@@ -1,6 +1,6 @@
 {
   "name": "ris-ktx2",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Browser TypeScript library for loading, creating, and transcoding KTX2 textures, including the interfaces, enumerations, and texture-format helpers.",
   "type": "module",
   "author": "Luka Erkapic <erkapic.luka.dev@gmail.com>",
@@ -53,8 +53,10 @@
     "clean": "rm -rf dist",
     "test": "vitest run",
     "docs": "typedoc --options typedoc.json",
-    "example": "vite --config examples/browser/vite.config.ts",
-    "example:build": "tsc --noEmit -p examples/browser/tsconfig.json && vite build --config examples/browser/vite.config.ts",
+    "example:webgl": "vite --config examples/webgl/vite.config.ts",
+    "example:webgpu": "vite --config examples/webgpu/vite.config.ts",
+    "example:webgl:build": "tsc --noEmit -p examples/webgl/tsconfig.json && vite build --config examples/webgl/vite.config.ts",
+    "example:webgpu:build": "tsc --noEmit -p examples/webgpu/tsconfig.json && vite build --config examples/webgpu/vite.config.ts",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

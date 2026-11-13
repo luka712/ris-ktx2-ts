@@ -1,4 +1,4 @@
-import {describe, it, expect, vi} from "vitest";
+import {afterEach, describe, it, expect, vi} from "vitest";
 import {Ktx2Texture} from "../src/Ktx2Texture";
 import {
     KtxAstcQualityLevel,
@@ -86,27 +86,18 @@ const ASTC_ENUMS = {
 
 const GL_TEXTURE = {name: "webgl-texture"};
 
+/** A KTX2 header is 80 bytes. */
 function headerWithLevels(numLevels: number): Uint8Array {
-    const buffer = new Uint8Array(44);
+    const buffer = new Uint8Array(80);
     new DataView(buffer.buffer).setUint32(40, numLevels, true);
     return buffer;
 }
 
 const KTX2_IDENTIFIER = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
-const KTX1_IDENTIFIER = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
 
 function ktx2Header(numLevels: number): Uint8Array {
     const buffer = headerWithLevels(numLevels);
     buffer.set(KTX2_IDENTIFIER, 0);
-    return buffer;
-}
-
-function ktx1Header(numLevels: number, littleEndian = true): Uint8Array {
-    const buffer = new Uint8Array(64);
-    buffer.set(KTX1_IDENTIFIER, 0);
-    const view = new DataView(buffer.buffer);
-    view.setUint32(12, 0x04030201, littleEndian);
-    view.setUint32(56, numLevels, littleEndian);
     return buffer;
 }
 
@@ -195,26 +186,24 @@ describe("Ktx2Texture", () => {
             expect(fromOffsetView.numLevels).toBe(7);
         });
 
-        it("reports a header levelCount of 0 as 1 stored level", () => {
+        it("reports the header levelCount as is, including 0", () => {
             const texture = createTexture(createMockKtxTexture(), ktx2Header(0));
-            expect(texture.numLevels).toBe(1);
+            expect(texture.numLevels).toBe(0);
         });
 
-        it("reads numLevels from a KTX1 header in either byte order", () => {
-            expect(createTexture(createMockKtxTexture(), ktx1Header(5)).numLevels).toBe(5);
-            expect(createTexture(createMockKtxTexture(), ktx1Header(9, false)).numLevels).toBe(9);
+        it("reads numLayers from the KTX2 header as is, including 0", () => {
+            const header = ktx2Header(1);
+            new DataView(header.buffer).setUint32(32, 4, true);
+            expect(createTexture(createMockKtxTexture(), header).numLayers).toBe(4);
+            expect(createTexture(createMockKtxTexture(), ktx2Header(1)).numLayers).toBe(0);
         });
 
-        it("reports VkFormat.UNDEFINED for KTX1 without reading libktx vkFormat", () => {
-            const native = createMockKtxTexture();
-            Object.defineProperty(native, "vkFormat", {
-                get: () => {
-                    throw new Error("vkFormat must not be read for KTX1");
-                },
-            });
-            const texture = createTexture(native, ktx1Header(1));
-
-            expect(texture.vkFormat).toBe(VkFormat.UNDEFINED);
+        it("keeps numLayers on a copy and takes it from the create info", () => {
+            const header = ktx2Header(1);
+            new DataView(header.buffer).setUint32(32, 3, true);
+            const source = createTexture(createMockKtxTexture(), header);
+            expect(createTexture(createMockKtxTexture(), source).numLayers).toBe(3);
+            expect(createTexture(createMockKtxTexture(), {baseWidth: 4, baseHeight: 4}).numLayers).toBe(1);
         });
 
         it("reads width, height, dataSize, and vkFormat live from the native texture", () => {
@@ -685,6 +674,40 @@ describe("Ktx2Texture", () => {
 
             expect(() => texture.glUpload()).toThrow(/transcodeBasis first/);
             expect(native.glUpload).not.toHaveBeenCalled();
+        });
+    });
+
+    describe("gpuUpload", () => {
+        const device = () => ({
+            features: new Set<string>(),
+            createTexture: vi.fn(() => ({})),
+            queue: {writeTexture: vi.fn()},
+        });
+
+        afterEach(() => {
+            Ktx2Texture.gpuDevice = undefined;
+        });
+
+        it("creates a GPUTexture on the initialized device", () => {
+            const gpu = device();
+            Ktx2Texture.gpuDevice = gpu as unknown as GPUDevice;
+            const native = createMockKtxTexture({needsTranscoding: false, baseWidth: 4, baseHeight: 4});
+            const result = new Ktx2Texture(createMockKtxLib(), native, headerWithLevels(1)).gpuUpload({textureUsage: 0x04});
+
+            expect(gpu.createTexture).toHaveBeenCalledWith(expect.objectContaining({format: "rgba8unorm", mipLevelCount: 1, usage: 0x04 | 0x02}));
+            expect(gpu.queue.writeTexture).toHaveBeenCalledOnce();
+            expect(result).toBe(gpu.createTexture.mock.results[0].value);
+        });
+
+        it("throws when no GPUDevice was set", () => {
+            const texture = new Ktx2Texture(createMockKtxLib(), createMockKtxTexture({needsTranscoding: false}), headerWithLevels(1));
+            expect(() => texture.gpuUpload()).toThrow(/no GPUDevice.*preinitializedGPUDevice/);
+        });
+
+        it("throws while the texture still needs transcoding", () => {
+            Ktx2Texture.gpuDevice = device() as unknown as GPUDevice;
+            const texture = new Ktx2Texture(createMockKtxLib(), createMockKtxTexture({needsTranscoding: true}), headerWithLevels(1));
+            expect(() => texture.gpuUpload()).toThrow(/transcodeBasis first/);
         });
     });
 
