@@ -4,7 +4,6 @@
 
 ### Breaking changes
 
-- KTX1 files are no longer loaded. Only KTX2 is supported.
 - `numLevels` of a loaded texture is the raw KTX2 header value, so it can be `0`.
 
 ### Added
