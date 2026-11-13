@@ -80,8 +80,6 @@ export class WebGPUTextureLoader {
 
     /**
      * Creates a 2D WebGPU texture and writes every mip level of `ktx` into it.
-     * When {@link IKtx2Texture.numLayers} is more than 1, every array layer is
-     * written too, and the texture has that many `depthOrArrayLayers`.
      *
      * @param gpu - Device that creates the texture.
      * @param ktx - Texture to upload. It must not need transcoding.
@@ -92,10 +90,7 @@ export class WebGPUTextureLoader {
      * block-compressed texture is not a multiple of its block size.
      */
     public static load(gpu: GPUDevice | null | undefined, ktx: IKtx2Texture, params: GPUUploadParams = {}): GPUTexture {
-        const device = WebGPUTextureLoader._validate(gpu, ktx);
-        return ktx.numLayers > 1
-            ? WebGPUTextureLoader._loadTexture2DArray(device, ktx, params)
-            : WebGPUTextureLoader._loadTexture2D(device, ktx, params);
+        return WebGPUTextureLoader._loadTexture2D(WebGPUTextureLoader._validate(gpu, ktx), ktx, params);
     }
 
     private static _validate(gpu: GPUDevice | null | undefined, ktx: IKtx2Texture): GPUDevice {
@@ -108,18 +103,7 @@ export class WebGPUTextureLoader {
         return gpu;
     }
 
-    /** Uploads a texture with a single layer. */
     private static _loadTexture2D(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams): GPUTexture {
-        return WebGPUTextureLoader._loadLayers(gpu, ktx, params, 1);
-    }
-
-    /** Uploads every array layer of `ktx`, one WebGPU array layer each. */
-    private static _loadTexture2DArray(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams): GPUTexture {
-        return WebGPUTextureLoader._loadLayers(gpu, ktx, params, ktx.numLayers);
-    }
-
-    /** Creates a 2D texture with `layerCount` layers and writes every level of every layer. */
-    private static _loadLayers(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams, layerCount: number): GPUTexture {
         const format = WebGPUTextureLoader._toGPUTextureFormat(ktx.vkFormat);
 
         const info = TextureFormatInfo.fromVkFormat(ktx.vkFormat);
@@ -133,38 +117,83 @@ export class WebGPUTextureLoader {
         const mipLevelCount = Math.max(1, ktx.numLevels);
         const texture = gpu.createTexture({
             label: ktx.filePath,
-            size: { width: ktx.width, height: ktx.height, depthOrArrayLayers: layerCount },
+            size: { width: ktx.width, height: ktx.height, depthOrArrayLayers: 1 },
             format,
             mipLevelCount,
             usage: (params.textureUsage ?? DEFAULT_USAGE) | COPY_DST,
         });
 
-        for (let layer = 0; layer < layerCount; layer++) {
-            for (let level = 0; level < mipLevelCount; level++) {
-                const width = Math.max(1, ktx.width >> level);
-                const height = Math.max(1, ktx.height >> level);
-                const data = ktx.getImage(level, layer, 0);
+        for (let level = 0; level < mipLevelCount; level++) {
+            const width = Math.max(1, ktx.width >> level);
+            const height = Math.max(1, ktx.height >> level);
+            const data = ktx.getImage(level, 0, 0);
 
-                gpu.queue.writeTexture(
-                    { texture, mipLevel: level, origin: { x: 0, y: 0, z: layer } },
-                    data as Uint8Array<ArrayBuffer>,
-                    {
-                        offset: 0,
-                        bytesPerRow: info.getBytesPerRow(width),
-                        rowsPerImage: info.getBlocksPerColumn(height),
-                    },
-                    {
-                        // Block-compressed copies cover whole blocks.
-                        width: info.getBlocksPerRow(width) * info.blockWidth,
-                        height: info.getBlocksPerColumn(height) * info.blockHeight,
-                        depthOrArrayLayers: 1,
-                    },
-                );
-            }
+            gpu.queue.writeTexture(
+                { texture, mipLevel: level },
+                data as Uint8Array<ArrayBuffer>,
+                {
+                    offset: 0,
+                    bytesPerRow: info.getBytesPerRow(width),
+                    rowsPerImage: info.getBlocksPerColumn(height),
+                },
+                {
+                    // Block-compressed copies cover whole blocks.
+                    width: info.getBlocksPerRow(width) * info.blockWidth,
+                    height: info.getBlocksPerColumn(height) * info.blockHeight,
+                    depthOrArrayLayers: 1,
+                },
+            );
         }
 
         return texture;
     }
+
+       private static _loadTexture2DArray(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams): GPUTexture {
+        const format = WebGPUTextureLoader._toGPUTextureFormat(ktx.vkFormat);
+
+        const info = TextureFormatInfo.fromVkFormat(ktx.vkFormat);
+        if (ktx.width % info.blockWidth !== 0 || ktx.height % info.blockHeight !== 0) {
+            throw new Error(
+                `WebGPUTextureLoader: ${ktx.width}×${ktx.height} is not a multiple of the ` +
+                `${info.blockWidth}×${info.blockHeight} block size of ${format}.`,
+            );
+        }
+
+        const mipLevelCount = Math.max(1, ktx.numLevels);
+        const texture = gpu.createTexture({
+            label: ktx.filePath,
+            textureBindingViewDimension: "2d-array",
+            size: { width: ktx.width, height: ktx.height, depthOrArrayLayers: 1 },
+            format,
+            mipLevelCount,
+            usage: (params.textureUsage ?? DEFAULT_USAGE) | COPY_DST,
+        });
+
+        for (let level = 0; level < mipLevelCount; level++) {
+            const width = Math.max(1, ktx.width >> level);
+            const height = Math.max(1, ktx.height >> level);
+            const data = ktx.getImage(level, 0, 0);
+
+            gpu.queue.writeTexture(
+                { texture, mipLevel: level },
+                data as Uint8Array<ArrayBuffer>,
+                {
+                    offset: 0,
+                    bytesPerRow: info.getBytesPerRow(width),
+                    rowsPerImage: info.getBlocksPerColumn(height),
+                },
+                {
+                    // Block-compressed copies cover whole blocks.
+                    width: info.getBlocksPerRow(width) * info.blockWidth,
+                    height: info.getBlocksPerColumn(height) * info.blockHeight,
+                    depthOrArrayLayers: 1,
+                },
+            );
+        }
+
+        return texture;
+    }
+
 
     /**
      * WebGPU format for a `VkFormat`.
