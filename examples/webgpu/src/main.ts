@@ -76,6 +76,7 @@ const array = factory.create({
     baseHeight: pixels.height,
     vkFormat: VkFormat.R8G8B8A8_UNORM,
     numLayers: LAYER_TINTS.length,
+    isArray: true,
 });
 LAYER_TINTS.forEach((rgb, layer) => check(array.setImageFromMemory(0, layer, 0, tint(pixels.data, rgb)), "setImageFromMemory"));
 // gpuUpload creates a texture with one array layer per KTX layer.

@@ -87,6 +87,15 @@ export interface IKtx2Texture {
     readonly numLayers: number;
 
     /**
+     * Whether the texture is a 2D texture array.
+     *
+     * For loaded textures this is `true` when the KTX2 header `layerCount` is
+     * not `0`. Textures from {@link IKtx2Factory.create} take it from
+     * {@link IKtxTextureCreateInfo.isArray}.
+     */
+    readonly isArray: boolean;
+
+    /**
      * Vulkan format of the current image data.
      *
      * Basis Universal data reports {@link VkFormat.UNDEFINED}. After

@@ -85,7 +85,7 @@ describe("WebGPUTextureLoader", () => {
 
     it("uploads every level of every layer for an array texture", () => {
         const {device} = mockDevice();
-        const ktx = mockKtx({numLayers: 3, numLevels: 2});
+        const ktx = mockKtx({numLayers: 3, numLevels: 2, isArray: true});
         WebGPUTextureLoader.load(device, ktx);
 
         expect(device.createTexture.mock.calls[0][0].size).toEqual({width: 8, height: 8, depthOrArrayLayers: 3});
@@ -94,10 +94,10 @@ describe("WebGPUTextureLoader", () => {
         expect(device.queue.writeTexture.mock.calls[5][0]).toEqual(expect.objectContaining({mipLevel: 1, origin: {x: 0, y: 0, z: 2}}));
     });
 
-    it("uploads one layer when numLayers is 0 or 1", () => {
+    it("uploads one layer when isArray is false", () => {
         for (const numLayers of [0, 1]) {
             const {device} = mockDevice();
-            WebGPUTextureLoader.load(device, mockKtx({numLayers}));
+            WebGPUTextureLoader.load(device, mockKtx({numLayers, isArray: false}));
             expect(device.createTexture.mock.calls[0][0].size.depthOrArrayLayers).toBe(1);
         }
     });

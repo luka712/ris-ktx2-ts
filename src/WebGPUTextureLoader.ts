@@ -91,7 +91,7 @@ export class WebGPUTextureLoader {
      */
     public static load(gpu: GPUDevice | null | undefined, ktx: IKtx2Texture, params: GPUUploadParams = {}): GPUTexture {
         const device = WebGPUTextureLoader._validate(gpu, ktx);
-        return ktx.numLayers > 1
+        return ktx.isArray
             ? WebGPUTextureLoader._loadTexture2DArray(device, ktx, params)
             : WebGPUTextureLoader._loadTexture2D(device, ktx, params);
     }

@@ -135,7 +135,7 @@ export class Ktx2Factory implements IKtx2Factory {
             ktxCreateInfo.numLevels = createInfo.numLevels ?? 1;
             ktxCreateInfo.numLayers = createInfo.numLayers ?? 1;
             ktxCreateInfo.numFaces = 1;
-            ktxCreateInfo.isArray = ktxCreateInfo.numLayers > 1;
+            ktxCreateInfo.isArray = createInfo.isArray ?? false;
             ktxCreateInfo.generateMipmaps = false;
 
             const ktxStorage = Mapper.mapStorage(ktxLib, storage ?? KtxCreateStorage.ALLOC_STORAGE);

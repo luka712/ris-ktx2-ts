@@ -273,13 +273,14 @@ describe("Ktx2Factory", () => {
             expect(texture.numLayers).toBe(1);
         });
 
-        it("creates a 2D texture array when numLayers is more than 1", async () => {
+        it("creates a 2D texture array when isArray is set", async () => {
             const {factory, lib} = await initializedFactory();
 
-            const texture = factory.create({baseWidth: 4, baseHeight: 4, numLayers: 4});
+            const texture = factory.create({baseWidth: 4, baseHeight: 4, numLayers: 4, isArray: true});
 
             expect(lib.createInfos[0]).toMatchObject({numLayers: 4, isArray: true});
             expect(texture.numLayers).toBe(4);
+            expect(texture.isArray).toBe(true);
         });
 
         it("throws for an unsupported VkFormat and still frees the create info", async () => {

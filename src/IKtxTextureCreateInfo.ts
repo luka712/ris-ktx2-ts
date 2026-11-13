@@ -32,11 +32,17 @@ export interface IKtxTextureCreateInfo {
     numLevels?: number;
 
     /**
-     * Number of array layers. More than `1` creates a 2D texture array.
-     *
-     * Fill each layer with {@link IKtx2Texture.setImageFromMemory}.
+     * Number of array layers. Fill each layer with
+     * {@link IKtx2Texture.setImageFromMemory}.
      *
      * @defaultValue 1
      */
     numLayers?: number;
+
+    /**
+     * Whether the texture is a 2D texture array.
+     *
+     * @defaultValue false
+     */
+    isArray?: boolean;
 }

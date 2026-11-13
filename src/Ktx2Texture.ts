@@ -50,6 +50,8 @@ export class Ktx2Texture implements IKtx2Texture {
     /** libktx's Embind texture does not expose the layer count, so it is read from the header. */
     private _numLayers = 1;
 
+    private _isArray = false;
+
     /**
      * Wraps a native libktx texture.
      * @param ktxLib - The libktx module.
@@ -70,17 +72,20 @@ export class Ktx2Texture implements IKtx2Texture {
             // Copy: keep the source's metadata.
             this._numLevels = data._numLevels;
             this._numLayers = data._numLayers;
+            this._isArray = data._isArray;
             this._supercompressionScheme = data._supercompressionScheme;
         } else if (ArrayBuffer.isView(data)) {
             // File bytes: read the header (little-endian).
             const header = new DataView(data.buffer, data.byteOffset, data.byteLength);
             this._numLayers = header.getUint32(LAYER_COUNT_OFFSET, true);
+            this._isArray = this._numLayers !== 0;
             this._numLevels = header.getUint32(LEVEL_COUNT_OFFSET, true);
             this._supercompressionScheme = Mapper.mapSupercompressionScheme(header.getUint32(SUPERCOMPRESSION_SCHEME_OFFSET, true));
         } else {
             // Create info.
             this._numLevels = (data as IKtxTextureCreateInfo).numLevels ?? 0;
             this._numLayers = (data as { numLayers?: number }).numLayers ?? 1;
+            this._isArray = (data as { isArray?: boolean }).isArray ?? false;
         }
     }
 
@@ -120,6 +125,11 @@ export class Ktx2Texture implements IKtx2Texture {
     /** @inheritdoc */
     public get numLayers(): number {
         return this._numLayers;
+    }
+
+    /** @inheritdoc */
+    public get isArray(): boolean {
+        return this._isArray;
     }
 
     /** @inheritDoc */

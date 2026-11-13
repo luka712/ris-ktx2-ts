@@ -195,7 +195,9 @@ describe("Ktx2Texture", () => {
             const header = ktx2Header(1);
             new DataView(header.buffer).setUint32(32, 4, true);
             expect(createTexture(createMockKtxTexture(), header).numLayers).toBe(4);
+            expect(createTexture(createMockKtxTexture(), header).isArray).toBe(true);
             expect(createTexture(createMockKtxTexture(), ktx2Header(1)).numLayers).toBe(0);
+            expect(createTexture(createMockKtxTexture(), ktx2Header(1)).isArray).toBe(false);
         });
 
         it("keeps numLayers on a copy and takes it from the create info", () => {
