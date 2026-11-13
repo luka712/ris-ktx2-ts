@@ -1,21 +1,27 @@
-import {Mapper} from "./Mapper";
-import type {IKtx2Texture} from "./IKtx2Texture";
-import type {IKtxTextureCreateInfo} from "./IKtxTextureCreateInfo";
-import {VkFormat} from "./VkFormat";
-import type {IKtxBasisParams} from "./IKtxBasisParams";
-import {KtxTranscodeFormat} from "./KtxTranscodeFormat";
-import {KtxTranscodeFlags} from "./KtxTranscodeFlags";
-import {KtxErrorCode} from "./KtxErrorCode";
-import {KtxUastcFlags} from "./KtxUastcFlags";
-import {TextureFormatInfo} from "./TextureFormatInfo";
-import {detectKtxContainer, readNumLevels, readSupercompressionScheme, toUint8Array} from "./KtxContainer";
-import type {IKtxAstcParams} from "./IKtxAstcParams";
-import {KtxAstcQualityLevel} from "./KtxAstcQualityLevel";
-import {KtxAstcEncoderMode} from "./KtxAstcEncoderMode";
-import {KtxAstcBlockDimension} from "./KtxAstcBlockDimension";
+import { Mapper } from "./Mapper";
+import type { IKtx2Texture } from "./IKtx2Texture";
+import type { IKtxTextureCreateInfo } from "./IKtxTextureCreateInfo";
+import { VkFormat } from "./VkFormat";
+import type { IKtxBasisParams } from "./IKtxBasisParams";
+import { KtxTranscodeFormat } from "./KtxTranscodeFormat";
+import { KtxTranscodeFlags } from "./KtxTranscodeFlags";
+import { KtxErrorCode } from "./KtxErrorCode";
+import { KtxUastcFlags } from "./KtxUastcFlags";
+import { TextureFormatInfo } from "./TextureFormatInfo";
+import type { IKtxAstcParams } from "./IKtxAstcParams";
+import { KtxAstcQualityLevel } from "./KtxAstcQualityLevel";
+import { KtxAstcEncoderMode } from "./KtxAstcEncoderMode";
+import { KtxAstcBlockDimension } from "./KtxAstcBlockDimension";
 import type { IKtxUploadResult } from "./IKtxUploadResult";
-import {KtxSupercompressionScheme} from "./KtxSupercompressionScheme";
-import type {KtxDFTransfer} from "./KtxDFTransfer";
+import type { GPUUploadParams } from "./GPUUploadParams";
+import { WebGPUTextureLoader } from "./WebGPUTextureLoader";
+import { KtxSupercompressionScheme } from "./KtxSupercompressionScheme";
+import type { KtxDFTransfer } from "./KtxDFTransfer";
+
+// KTX2 header byte offsets for fields libktx's Embind texture does not expose.
+const LAYER_COUNT_OFFSET = 32;
+const LEVEL_COUNT_OFFSET = 40;
+const SUPERCOMPRESSION_SCHEME_OFFSET = 44;
 
 /**
  * libktx-backed implementation of {@link IKtx2Texture}. Create instances
@@ -23,6 +29,9 @@ import type {KtxDFTransfer} from "./KtxDFTransfer";
  * @internal
  */
 export class Ktx2Texture implements IKtx2Texture {
+
+    /** Device for {@link Ktx2Texture.gpuUpload}, set by `Ktx2Factory.initializeAsync`. */
+    public static gpuDevice?: GPUDevice;
 
     // @ts-ignore
     private readonly _ktxLib: any;
@@ -38,21 +47,23 @@ export class Ktx2Texture implements IKtx2Texture {
      */
     private _supercompressionScheme = KtxSupercompressionScheme.NONE;
 
-    /** `true` for KTX1 data. libktx has no `vkFormat` for KTX1 textures. */
-    private _isKtx1 = false;
+    /** libktx's Embind texture does not expose the layer count, so it is read from the header. */
+    private _numLayers = 1;
+
+    private _isArray = false;
 
     /**
      * Wraps a native libktx texture.
      * @param ktxLib - The libktx module.
      * @param ktxTexture - The native libktx texture.
-     * @param data - Source of `numLevels`: the KTX or KTX2 file bytes (read
-     * from the header), the create info, or the texture being copied.
+     * @param data - Source of `numLevels` and `numLayers`: the KTX2 file bytes
+     * (read from the header), the create info, or the texture being copied.
      * @param filePath - URL or file name the texture was loaded from.
      */
     constructor(ktxLib: any,
-                ktxTexture: any,
-                data: ArrayBufferView<ArrayBufferLike> | IKtxTextureCreateInfo | Ktx2Texture,
-                filePath?: string) {
+        ktxTexture: any,
+        data: ArrayBufferView<ArrayBufferLike> | IKtxTextureCreateInfo | Ktx2Texture,
+        filePath?: string) {
         this._ktxLib = ktxLib;
         this._ktxTexture = ktxTexture;
         this.filePath = filePath;
@@ -60,17 +71,21 @@ export class Ktx2Texture implements IKtx2Texture {
         if (data instanceof Ktx2Texture) {
             // Copy: keep the source's metadata.
             this._numLevels = data._numLevels;
-            this._isKtx1 = data._isKtx1;
+            this._numLayers = data._numLayers;
+            this._isArray = data._isArray;
             this._supercompressionScheme = data._supercompressionScheme;
         } else if (ArrayBuffer.isView(data)) {
-            // File bytes, as any view type: read the header.
-            const bytes = toUint8Array(data);
-            this._isKtx1 = detectKtxContainer(bytes) === "ktx1";
-            this._numLevels = readNumLevels(bytes);
-            this._supercompressionScheme = Mapper.mapSupercompressionScheme(readSupercompressionScheme(bytes));
+            // File bytes: read the header (little-endian).
+            const header = new DataView(data.buffer, data.byteOffset, data.byteLength);
+            this._numLayers = header.getUint32(LAYER_COUNT_OFFSET, true);
+            this._isArray = this._numLayers !== 0;
+            this._numLevels = header.getUint32(LEVEL_COUNT_OFFSET, true);
+            this._supercompressionScheme = Mapper.mapSupercompressionScheme(header.getUint32(SUPERCOMPRESSION_SCHEME_OFFSET, true));
         } else {
             // Create info.
             this._numLevels = (data as IKtxTextureCreateInfo).numLevels ?? 0;
+            this._numLayers = (data as { numLayers?: number }).numLayers ?? 1;
+            this._isArray = (data as { isArray?: boolean }).isArray ?? false;
         }
     }
 
@@ -94,8 +109,7 @@ export class Ktx2Texture implements IKtx2Texture {
 
     /** @inheritDoc */
     public get vkFormat(): VkFormat {
-        // libktx logs an error and returns 0 when vkFormat is read on KTX1.
-        return this._isKtx1 ? VkFormat.UNDEFINED : this._ktxTexture.vkFormat;
+        return this._ktxTexture.vkFormat;
     }
 
     /** @inheritdoc */
@@ -106,6 +120,16 @@ export class Ktx2Texture implements IKtx2Texture {
     /** @inheritdoc */
     public get numLevels() {
         return this._numLevels;
+    }
+
+    /** @inheritdoc */
+    public get numLayers(): number {
+        return this._numLayers;
+    }
+
+    /** @inheritdoc */
+    public get isArray(): boolean {
+        return this._isArray;
     }
 
     /** @inheritDoc */
@@ -316,6 +340,17 @@ export class Ktx2Texture implements IKtx2Texture {
             object: ktxGlUpload.object ?? undefined,
             target: ktxGlUpload.target ?? 0,
         };
+    }
+
+    /** @inheritDoc */
+    public gpuUpload(params: GPUUploadParams = {}): GPUTexture {
+        if (!Ktx2Texture.gpuDevice) {
+            throw new Error("gpuUpload: no GPUDevice. Pass preinitializedGPUDevice to Ktx2Factory.initializeAsync first.");
+        }
+        if (this.needsTranscoding) {
+            throw new Error("gpuUpload: the texture holds Basis Universal data. Call transcodeBasis first.");
+        }
+        return WebGPUTextureLoader.load(Ktx2Texture.gpuDevice, this, params);
     }
 
     /** @inheritDoc */

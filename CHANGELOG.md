@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+### Added
+
+- WebGPU upload with `gpuUpload`, for 2D textures and 2D texture arrays. Pass your device with `initializeAsync({ preinitializedGPUDevice: device })`.
+- `numLayers` texture property, and `numLayers` in `create` for 2D texture arrays.
+
 ## 0.2.0
 
 ### Breaking changes

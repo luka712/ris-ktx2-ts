@@ -1,3 +1,4 @@
+import {Ktx2Texture} from "../src/Ktx2Texture";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 const createKtxModuleAsync = vi.hoisted(() => vi.fn());
@@ -41,6 +42,8 @@ function createMockKtxLib(options: {baseWidth?: number} = {}) {
 
     class MockCreateInfo {
         public numLevels?: number;
+        public numLayers?: number;
+        public isArray?: boolean;
         public deleted = false;
 
         constructor() {
@@ -138,6 +141,16 @@ describe("Ktx2Factory", () => {
                 expect(lib.GL.makeContextCurrent).toHaveBeenLastCalledWith(2);
             });
 
+            it("sets the GPUDevice used by gpuUpload", async () => {
+                createKtxModuleAsync.mockResolvedValue(libWithGl());
+                const device = {} as GPUDevice;
+
+                await new Ktx2Factory().initializeAsync({preinitializedGPUDevice: device});
+
+                expect(Ktx2Texture.gpuDevice).toBe(device);
+                Ktx2Texture.gpuDevice = undefined;
+            });
+
             it("does not touch GL when no context is passed", async () => {
                 const lib = libWithGl();
                 createKtxModuleAsync.mockResolvedValue(lib);
@@ -213,14 +226,6 @@ describe("Ktx2Factory", () => {
             expect(texture.numLevels).toBe(2);
         });
 
-        it("throws for data without a KTX identifier and does not call libktx", async () => {
-            const {factory, lib} = await initializedFactory();
-            vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>not a texture</html>")));
-
-            await expect(factory.loadAsync("/index.html")).rejects.toThrow(/"\/index.html" is not a KTX or KTX2 file/);
-            expect(lib.created).toHaveLength(0);
-        });
-
         it("throws and frees the native texture when libktx cannot read the data", async () => {
             const {factory, lib} = await initializedFactory(createMockKtxLib({baseWidth: 0}));
             vi.stubGlobal("fetch", vi.fn(async () => new Response(ktx2File())));
@@ -246,12 +251,6 @@ describe("Ktx2Factory", () => {
             expect(input.byteLength).toBe(file.byteLength);
             expect(texture.numLevels).toBe(4);
         });
-
-        it("throws for bytes that are not a KTX file", async () => {
-            const {factory} = await initializedFactory();
-
-            expect(() => factory.createFromBuffer(new Uint8Array(64))).toThrow(/The buffer is not a KTX or KTX2 file/);
-        });
     });
 
     describe("create", () => {
@@ -263,6 +262,25 @@ describe("Ktx2Factory", () => {
             expect(texture.numLevels).toBe(3);
             expect(lib.createInfos).toHaveLength(1);
             expect(lib.createInfos[0].deleted).toBe(true);
+        });
+
+        it("creates a single layer texture by default", async () => {
+            const {factory, lib} = await initializedFactory();
+
+            const texture = factory.create({baseWidth: 4, baseHeight: 4});
+
+            expect(lib.createInfos[0]).toMatchObject({numLayers: 1, isArray: false});
+            expect(texture.numLayers).toBe(1);
+        });
+
+        it("creates a 2D texture array when isArray is set", async () => {
+            const {factory, lib} = await initializedFactory();
+
+            const texture = factory.create({baseWidth: 4, baseHeight: 4, numLayers: 4, isArray: true});
+
+            expect(lib.createInfos[0]).toMatchObject({numLayers: 4, isArray: true});
+            expect(texture.numLayers).toBe(4);
+            expect(texture.isArray).toBe(true);
         });
 
         it("throws for an unsupported VkFormat and still frees the create info", async () => {

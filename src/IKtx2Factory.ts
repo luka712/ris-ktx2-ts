@@ -36,16 +36,14 @@ export interface IKtx2Factory {
      * Loads a KTX2 file from a URL or a `File`.
      *
      * A string is fetched with `fetch`. A `File` is read with
-     * `File.arrayBuffer()`. KTX1 files are accepted too. See
-     * {@link IKtx2Texture} for what works on them.
+     * `File.arrayBuffer()`.
      *
      * @param blob - URL to fetch, or a `File`, for example from an
      * `<input type="file">` element.
      * @returns The loaded texture. Its {@link IKtx2Texture.filePath} is the
      * URL or the file name.
      * @throws {Error} When the factory is not initialized, the HTTP response
-     * is not successful, the data does not start with a KTX or KTX2 file
-     * identifier, or libktx cannot read it (for example a truncated file).
+     * is not successful, or libktx cannot read the data as KTX2.
      *
      * @example
      * ```ts
@@ -83,13 +81,12 @@ export interface IKtx2Factory {
      * Creates a texture from the bytes of a KTX2 file that is already in memory.
      *
      * Any `ArrayBufferView` works, including `DataView` and views with a
-     * byte offset. The bytes are read in place, not copied first. KTX1 files
-     * are accepted too.
+     * byte offset. The bytes are read in place, not copied first.
      *
      * @param buffer - KTX2 file bytes.
      * @returns The loaded texture.
-     * @throws {Error} When the factory is not initialized, the data does not
-     * start with a KTX or KTX2 file identifier, or libktx cannot read it.
+     * @throws {Error} When the factory is not initialized or libktx cannot
+     * read the data as KTX2.
      *
      * @example
      * ```ts
