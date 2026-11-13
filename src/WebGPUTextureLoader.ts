@@ -90,7 +90,10 @@ export class WebGPUTextureLoader {
      * block-compressed texture is not a multiple of its block size.
      */
     public static load(gpu: GPUDevice | null | undefined, ktx: IKtx2Texture, params: GPUUploadParams = {}): GPUTexture {
-        return WebGPUTextureLoader._loadTexture2D(WebGPUTextureLoader._validate(gpu, ktx), ktx, params);
+        const device = WebGPUTextureLoader._validate(gpu, ktx);
+        return ktx.numLayers > 1
+            ? WebGPUTextureLoader._loadTexture2DArray(device, ktx, params)
+            : WebGPUTextureLoader._loadTexture2D(device, ktx, params);
     }
 
     private static _validate(gpu: GPUDevice | null | undefined, ktx: IKtx2Texture): GPUDevice {
@@ -148,7 +151,7 @@ export class WebGPUTextureLoader {
         return texture;
     }
 
-       private static _loadTexture2DArray(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams): GPUTexture {
+    private static _loadTexture2DArray(gpu: GPUDevice, ktx: IKtx2Texture, params: GPUUploadParams): GPUTexture {
         const format = WebGPUTextureLoader._toGPUTextureFormat(ktx.vkFormat);
 
         const info = TextureFormatInfo.fromVkFormat(ktx.vkFormat);
@@ -163,32 +166,34 @@ export class WebGPUTextureLoader {
         const texture = gpu.createTexture({
             label: ktx.filePath,
             textureBindingViewDimension: "2d-array",
-            size: { width: ktx.width, height: ktx.height, depthOrArrayLayers: 1 },
+            size: { width: ktx.width, height: ktx.height, depthOrArrayLayers: ktx.numLayers },
             format,
             mipLevelCount,
             usage: (params.textureUsage ?? DEFAULT_USAGE) | COPY_DST,
         });
 
-        for (let level = 0; level < mipLevelCount; level++) {
-            const width = Math.max(1, ktx.width >> level);
-            const height = Math.max(1, ktx.height >> level);
-            const data = ktx.getImage(level, 0, 0);
+        for (let layer = 0; layer < ktx.numLayers; layer++) {
+            for (let level = 0; level < mipLevelCount; level++) {
+                const width = Math.max(1, ktx.width >> level);
+                const height = Math.max(1, ktx.height >> level);
+                const data = ktx.getImage(level, layer, 0);
 
-            gpu.queue.writeTexture(
-                { texture, mipLevel: level },
-                data as Uint8Array<ArrayBuffer>,
-                {
-                    offset: 0,
-                    bytesPerRow: info.getBytesPerRow(width),
-                    rowsPerImage: info.getBlocksPerColumn(height),
-                },
-                {
-                    // Block-compressed copies cover whole blocks.
-                    width: info.getBlocksPerRow(width) * info.blockWidth,
-                    height: info.getBlocksPerColumn(height) * info.blockHeight,
-                    depthOrArrayLayers: 1,
-                },
-            );
+                gpu.queue.writeTexture(
+                    { texture, mipLevel: level, origin: { x: 0, y: 0, z: layer } },
+                    data as Uint8Array<ArrayBuffer>,
+                    {
+                        offset: 0,
+                        bytesPerRow: info.getBytesPerRow(width),
+                        rowsPerImage: info.getBlocksPerColumn(height),
+                    },
+                    {
+                        // Block-compressed copies cover whole blocks.
+                        width: info.getBlocksPerRow(width) * info.blockWidth,
+                        height: info.getBlocksPerColumn(height) * info.blockHeight,
+                        depthOrArrayLayers: 1,
+                    },
+                );
+            }
         }
 
         return texture;
