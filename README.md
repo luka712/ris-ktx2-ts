@@ -120,7 +120,10 @@ gl.texParameteri(result.target, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 
 ## Examples
 
-[`examples/browser`](examples/browser/README.md) is a minimal Vite page that encodes a PNG to KTX2, then loads, transcodes and draws the result. Run it with `npm run example`.
+Two minimal Vite pages encode a PNG to KTX2, then load, transcode and draw the result:
+
+- [`examples/webgl`](examples/webgl/README.md) draws with WebGL2 using `glUpload`. Run it with `npm run example:webgl`.
+- [`examples/webgpu`](examples/webgpu/README.md) draws with WebGPU using `gpuUpload`. Run it with `npm run example:webgpu`.
 
 ## API
 
